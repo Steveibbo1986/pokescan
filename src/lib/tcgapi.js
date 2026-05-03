@@ -2,13 +2,22 @@
 // Wrapper around the free Pokémon TCG API (api.pokemontcg.io)
 
 const BASE = 'https://api.pokemontcg.io/v2';
+const USD_TO_GBP = 0.79; // approximate - update as needed
+
+export function toGBP(usd) {
+  if (!usd) return null;
+  return (usd * USD_TO_GBP).toFixed(2);
+}
+
+export function formatGBP(usd) {
+  const gbp = toGBP(usd);
+  if (!gbp) return null;
+  return `£${gbp}`;
+}
 
 const headers = {};
-// Optional: add API key for higher rate limits (10/sec free vs 1000/sec with key)
-// if (import.meta.env.VITE_TCG_API_KEY) headers['X-Api-Key'] = import.meta.env.VITE_TCG_API_KEY;
 
 // ─── Card search ────────────────────────────────────────────
-// Find a card by name + set info (from Claude's identification)
 export async function findCard({ name, setName, cardNumber }) {
   const parts = [];
   if (name)       parts.push(`name:"${name}"`);
@@ -23,7 +32,6 @@ export async function findCard({ name, setName, cardNumber }) {
 
   if (!data.data?.length) return null;
 
-  // If we have set name, try to match it
   if (setName) {
     const setNorm = setName.toLowerCase().replace(/[^a-z0-9]/g, '');
     const match = data.data.find(c => {
@@ -42,6 +50,23 @@ export async function getCardById(cardId) {
   if (!res.ok) return null;
   const data = await res.json();
   return normaliseCard(data.data);
+}
+
+// ─── Pokémon search - all cards for a named Pokémon ─────────
+export async function searchPokemonCards(pokemonName, page = 1) {
+  const query = `name:"${pokemonName}"`;
+  const url = `${BASE}/cards?q=${encodeURIComponent(query)}&page=${page}&pageSize=50&orderBy=-set.releaseDate`;
+
+  const res = await fetch(url, { headers });
+  if (!res.ok) throw new Error(`TCG API error: ${res.status}`);
+  const data = await res.json();
+
+  return {
+    cards: data.data.map(normaliseCard),
+    total: data.totalCount,
+    page: data.page,
+    pageSize: data.pageSize,
+  };
 }
 
 // ─── Set browsing ───────────────────────────────────────────
@@ -76,29 +101,26 @@ export async function getCardsInSet(setId, page = 1, pageSize = 250) {
 }
 
 // ─── Bulk card resolution ───────────────────────────────────
-// Given Claude's output for multiple cards, resolve all via TCG API
 export async function resolveCards(identifiedCards) {
   const resolved = await Promise.allSettled(
     identifiedCards.map(async (card) => {
       if (card.error) return { ...card, resolved: false };
-
       const tcgCard = await findCard({
         name: card.name,
         setName: card.set_name,
         cardNumber: card.card_number,
       });
-
       if (!tcgCard) return { ...card, resolved: false, tcgCard: null };
       return { ...card, resolved: true, tcgCard };
     })
   );
-
   return resolved.map(r => r.status === 'fulfilled' ? r.value : { error: 'resolution_failed' });
 }
 
 // ─── Normalise card shape ───────────────────────────────────
-function normaliseCard(c) {
+export function normaliseCard(c) {
   if (!c) return null;
+  const prices = extractPrices(c.tcgplayer?.prices);
   return {
     id: c.id,
     name: c.name,
@@ -112,7 +134,13 @@ function normaliseCard(c) {
     image_small: c.images?.small,
     image_large: c.images?.large,
     tcgplayer_url: c.tcgplayer?.url,
-    prices: extractPrices(c.tcgplayer?.prices),
+    prices,
+    prices_gbp: prices ? {
+      market: toGBP(prices.market),
+      low:    toGBP(prices.low),
+      mid:    toGBP(prices.mid),
+      high:   toGBP(prices.high),
+    } : null,
   };
 }
 
@@ -122,8 +150,8 @@ function extractPrices(prices) {
   if (!tier) return null;
   return {
     market: tier.market,
-    low: tier.low,
-    mid: tier.mid,
-    high: tier.high,
+    low:    tier.low,
+    mid:    tier.mid,
+    high:   tier.high,
   };
 }

@@ -13,6 +13,7 @@ export default function Navbar() {
     { to: '/',           label: 'Home'       },
     { to: '/scan',       label: 'Scan'       },
     { to: '/collection', label: 'Collection' },
+    { to: '/pokedex',    label: 'Pokédex'    },
     { to: '/wishlist',   label: 'Wishlist'   },
     { to: '/trades',     label: 'Trades', badge: incoming.length },
     { to: '/community',  label: 'Community'  },

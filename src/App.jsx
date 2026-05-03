@@ -9,6 +9,7 @@ import Collection from './pages/Collection';
 import Wishlist from './pages/Wishlist';
 import Trades from './pages/Trades';
 import Community from './pages/Community';
+import Pokedex from './pages/Pokedex';
 
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
@@ -28,14 +29,15 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
-      <Route path="/" element={<ProtectedLayout><Home /></ProtectedLayout>} />
-      <Route path="/scan" element={<ProtectedLayout><Scan /></ProtectedLayout>} />
+      <Route path="/auth"       element={user ? <Navigate to="/" replace /> : <Auth />} />
+      <Route path="/"           element={<ProtectedLayout><Home /></ProtectedLayout>} />
+      <Route path="/scan"       element={<ProtectedLayout><Scan /></ProtectedLayout>} />
       <Route path="/collection" element={<ProtectedLayout><Collection /></ProtectedLayout>} />
-      <Route path="/wishlist" element={<ProtectedLayout><Wishlist /></ProtectedLayout>} />
-      <Route path="/trades" element={<ProtectedLayout><Trades /></ProtectedLayout>} />
-      <Route path="/community" element={<ProtectedLayout><Community /></ProtectedLayout>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="/pokedex"    element={<ProtectedLayout><Pokedex /></ProtectedLayout>} />
+      <Route path="/wishlist"   element={<ProtectedLayout><Wishlist /></ProtectedLayout>} />
+      <Route path="/trades"     element={<ProtectedLayout><Trades /></ProtectedLayout>} />
+      <Route path="/community"  element={<ProtectedLayout><Community /></ProtectedLayout>} />
+      <Route path="*"           element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
