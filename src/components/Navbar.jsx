@@ -10,13 +10,14 @@ export default function Navbar() {
   const { pathname } = useLocation();
 
   const nav = [
-    { to: '/',           label: 'Home'       },
-    { to: '/scan',       label: 'Scan'       },
-    { to: '/collection', label: 'Collection' },
-    { to: '/pokedex',    label: 'Pokédex'    },
-    { to: '/wishlist',   label: 'Wishlist'   },
+    { to: '/',           label: 'Home'        },
+    { to: '/scan',       label: 'Scan'        },
+    { to: '/collection', label: 'Collection'  },
+    { to: '/my-pokedex', label: 'My Pokédex'  },
+    { to: '/find',       label: 'Find'        },
+    { to: '/wishlist',   label: 'Wishlist'    },
     { to: '/trades',     label: 'Trades', badge: incoming.length },
-    { to: '/community',  label: 'Community'  },
+    { to: '/community',  label: 'Community'   },
   ];
 
   return (

@@ -6,10 +6,11 @@ import Auth from './pages/Auth';
 import Home from './pages/Home';
 import Scan from './pages/Scan';
 import Collection from './pages/Collection';
+import MyPokedex from './pages/MyPokedex';
+import Find from './pages/Find';
 import Wishlist from './pages/Wishlist';
 import Trades from './pages/Trades';
 import Community from './pages/Community';
-import Pokedex from './pages/Pokedex';
 
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
@@ -26,14 +27,14 @@ function ProtectedLayout({ children }) {
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
-
   return (
     <Routes>
       <Route path="/auth"       element={user ? <Navigate to="/" replace /> : <Auth />} />
       <Route path="/"           element={<ProtectedLayout><Home /></ProtectedLayout>} />
       <Route path="/scan"       element={<ProtectedLayout><Scan /></ProtectedLayout>} />
       <Route path="/collection" element={<ProtectedLayout><Collection /></ProtectedLayout>} />
-      <Route path="/pokedex"    element={<ProtectedLayout><Pokedex /></ProtectedLayout>} />
+      <Route path="/my-pokedex" element={<ProtectedLayout><MyPokedex /></ProtectedLayout>} />
+      <Route path="/find"       element={<ProtectedLayout><Find /></ProtectedLayout>} />
       <Route path="/wishlist"   element={<ProtectedLayout><Wishlist /></ProtectedLayout>} />
       <Route path="/trades"     element={<ProtectedLayout><Trades /></ProtectedLayout>} />
       <Route path="/community"  element={<ProtectedLayout><Community /></ProtectedLayout>} />
