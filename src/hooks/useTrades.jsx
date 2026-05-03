@@ -1,6 +1,6 @@
 // src/hooks/useTrades.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { getTrades, createTrade, updateTradeStatus, subscribeTrades } from '../lib/supabase';
+import { getTrades, createTrade, updateTradeStatus } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
 export function useTrades() {
@@ -18,12 +18,6 @@ export function useTrades() {
   useEffect(() => {
     fetch();
   }, [fetch]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = subscribeTrades(user.id, () => fetch());
-    return () => channel?.unsubscribe?.();
-  }, [user?.id]);
 
   const incoming = trades.filter(t => t.to_user_id === user?.id && t.status === 'pending');
   const outgoing = trades.filter(t => t.from_user_id === user?.id);
