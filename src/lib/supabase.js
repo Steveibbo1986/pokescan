@@ -91,11 +91,20 @@ export const sendFriendRequest = (requesterId, addresseeId) =>
 export const respondToFriendRequest = (friendshipId, status) =>
   supabase.from('friendships').update({ status }).eq('id', friendshipId);
 
-// ─── Realtime subscriptions ─────────────────────────────────
-export const subscribeTrades = (userId, callback) =>
-  supabase.channel('trades')
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'trade_offers',
-      filter: `to_user_id=eq.${userId}`,
-    }, callback)
-    .subscribe();
+// ─── Realtime subscription (fixed) ─────────────────────────
+export const subscribeTrades = (userId, callback) => {
+  const channel = supabase.channel(`trades-${userId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'trade_offers',
+        filter: `to_user_id=eq.${userId}`,
+      },
+      callback
+    );
+
+  channel.subscribe();
+  return channel;
+};
