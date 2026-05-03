@@ -571,38 +571,126 @@ function IndividualScanner({ onComplete, user, addCard, onBack }) {
 
 // ─── Manual picker ────────────────────────────────────────────
 function ManualPicker({ initialName, onSelect, onCancel }) {
-  const [query, setQuery]     = useState(initialName);
-  const [results, setResults] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [query, setQuery]       = useState(initialName);
+  const [setName, setSetName]   = useState('');
+  const [results, setResults]   = useState([]);
+  const [loading, setLoading]   = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  // Detect if query looks like a card number
+  const isNumber = (q) => /\d+\/\d+/.test(q) || /^\d{1,3}$/.test(q.trim());
 
   const search = async () => {
-    if (!query.trim()) return;
+    const q = query.trim();
+    if (!q) return;
     setLoading(true);
-    try { const data = await searchPokemonCards(query.trim()); setResults(data.cards || []); }
-    catch (err) { console.error(err); }
+    setSearched(true);
+    setResults([]);
+
+    try {
+      if (isNumber(q)) {
+        // Card number search — hit TCG API directly
+        const numPart = q.split('/')[0].replace(/^0+/, '');
+        let searchQuery = `number:${numPart}`;
+        if (setName.trim()) searchQuery += ` set.name:"${setName.trim()}"`;
+
+        const res = await fetch(
+          `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(searchQuery)}&pageSize=20&orderBy=-set.releaseDate`
+        );
+        const data = await res.json();
+        const USD_TO_GBP = 0.79;
+        const cards = (data.data || []).map(c => {
+          const p = c.tcgplayer?.prices;
+          const tier = p ? (p.holofoil || p.normal || p['1stEditionNormal'] || p.reverseHolofoil) : null;
+          const prices = tier ? { market: tier.market, low: tier.low, high: tier.high } : null;
+          return {
+            id: c.id, name: c.name,
+            set_id: c.set?.id, set_name: c.set?.name, set_series: c.set?.series,
+            card_number: c.number, rarity: c.rarity,
+            image_small: c.images?.small, tcgplayer_url: c.tcgplayer?.url,
+            prices,
+            prices_gbp: prices ? {
+              market: prices.market ? (prices.market * USD_TO_GBP).toFixed(2) : null,
+              low:    prices.low    ? (prices.low    * USD_TO_GBP).toFixed(2) : null,
+              high:   prices.high   ? (prices.high   * USD_TO_GBP).toFixed(2) : null,
+            } : null,
+          };
+        });
+        setResults(cards);
+      } else {
+        // Name search
+        const data = await searchPokemonCards(q);
+        setResults(data.cards || []);
+      }
+    } catch (err) { console.error(err); }
     setLoading(false);
   };
 
   return (
-    <div>
-      <div style={{display:'flex',gap:8,marginBottom:12}}>
-        <input className="search-input" value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Type Pokémon name..." autoFocus />
-        <button className="btn btn-primary btn-sm" onClick={search} disabled={loading}>Search</button>
-        <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>
+    <div className="manual-picker">
+      <div className="manual-picker-fields">
+        <div className="manual-picker-main">
+          <input
+            className="search-input"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && search()}
+            placeholder="Card number (e.g. 023/088) or Pokémon name"
+            autoFocus
+          />
+        </div>
+        <div className="manual-picker-set">
+          <input
+            className="search-input"
+            value={setName}
+            onChange={e => setSetName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && search()}
+            placeholder="Set name (optional)"
+          />
+        </div>
+        <button className="btn btn-primary" onClick={search} disabled={loading || !query.trim()}>
+          {loading ? '...' : 'Search'}
+        </button>
+        <button className="btn btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
-      {loading && <div style={{textAlign:'center',color:'var(--muted)',padding:20}}>Searching...</div>}
-      <div className="card-grid-display card-grid-sm" style={{maxHeight:400,overflowY:'auto'}}>
-        {results.map(card => (
-          <div key={card.id} className="card-tile" onClick={()=>onSelect(card)} style={{cursor:'pointer'}}>
-            <div className="card-tile-image">{card.image_small&&<img src={card.image_small} alt={card.name} loading="lazy"/>}</div>
-            <div className="card-tile-info">
-              <div className="card-tile-name">{card.name}</div>
-              <div className="card-tile-set">{card.set_name} #{card.card_number}</div>
-              {card.prices_gbp?.market&&<div style={{fontSize:11,color:'var(--green)',fontWeight:600}}>£{card.prices_gbp.market}</div>}
-            </div>
+
+      <div className="manual-picker-hint">
+        Type the number printed on the card e.g. <code>052/102</code> or just <code>52</code> — add the set name to narrow it down. Or type the Pokémon name to browse all its cards.
+      </div>
+
+      {loading && <div style={{textAlign:'center',color:'var(--muted)',padding:20}}>⚡ Searching...</div>}
+
+      {searched && !loading && results.length === 0 && (
+        <div className="empty-state" style={{padding:'16px 0'}}>No cards found — try a different number or name.</div>
+      )}
+
+      {results.length > 0 && (
+        <div className="manual-picker-results">
+          <div className="manual-picker-count">{results.length} card{results.length !== 1 ? 's' : ''} found — tap one to use it</div>
+          <div className="manual-picker-grid">
+            {results.map(card => (
+              <div key={card.id} className="manual-picker-card" onClick={() => onSelect(card)}>
+                <div className="manual-picker-img">
+                  {card.image_small
+                    ? <img src={card.image_small} alt={card.name} loading="lazy" />
+                    : <div className="card-tile-placeholder">?</div>
+                  }
+                </div>
+                <div className="manual-picker-info">
+                  <div className="manual-picker-name">{card.name}</div>
+                  <div className="manual-picker-set">{card.set_name}</div>
+                  <div className="manual-picker-num">#{card.card_number}</div>
+                  {card.rarity && <div className="manual-picker-rarity">{card.rarity}</div>}
+                  {card.prices_gbp?.market && (
+                    <div className="manual-picker-price">£{card.prices_gbp.market}</div>
+                  )}
+                  <div className="manual-picker-select-btn">Tap to select ✓</div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

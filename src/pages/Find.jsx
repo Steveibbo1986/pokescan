@@ -1,6 +1,6 @@
-// src/pages/Find.jsx  (was Pokedex.jsx — renamed to Find)
+// src/pages/Find.jsx
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { searchPokemonCards, getSets, getCardsInSet } from '../lib/tcgapi';
 import { useCollection } from '../hooks/useCollection';
 import { useAuth } from '../hooks/useAuth';
@@ -18,10 +18,10 @@ const POPULAR = [
 ];
 
 export default function Find() {
-  const { user } = useAuth();
-  const { cards: myCards } = useCollection();
-  const [searchParams] = useSearchParams();
-  const wrapRef = useRef(null);
+  const { user }            = useAuth();
+  const { cards: myCards, addCard } = useCollection();
+  const [searchParams]      = useSearchParams();
+  const wrapRef             = useRef(null);
 
   const [query, setQuery]             = useState(searchParams.get('q') || '');
   const [suggestions, setSuggestions] = useState([]);
@@ -31,7 +31,7 @@ export default function Find() {
   const [loading, setLoading]         = useState(false);
   const [searched, setSearched]       = useState('');
   const [groupBy, setGroupBy]         = useState('set');
-  const [addedIds, setAddedIds]       = useState(new Set());
+  const [feedback, setFeedback]       = useState({}); // cardId → 'added' | 'wishlisted'
   const [wishlistIds, setWishlistIds] = useState(new Set());
   const [tab, setTab]                 = useState('search');
   const [sets, setSets]               = useState([]);
@@ -43,7 +43,9 @@ export default function Find() {
   const myCardIds = new Set(myCards.map(c => c.card_id));
 
   useEffect(() => {
-    if (user) getWishlist(user.id).then(({ data }) => setWishlistIds(new Set((data || []).map(c => c.card_id))));
+    if (user) getWishlist(user.id).then(({ data }) =>
+      setWishlistIds(new Set((data || []).map(c => c.card_id)))
+    );
   }, [user]);
 
   useEffect(() => {
@@ -57,7 +59,6 @@ export default function Find() {
     getCardsInSet(selectedSet).then(({ cards }) => { setSetCards(cards); setLoadingSet(false); });
   }, [selectedSet]);
 
-  // Auto-search if navigated here with ?q=
   useEffect(() => {
     const q = searchParams.get('q');
     if (q) { setQuery(q); doSearch(q); }
@@ -92,28 +93,69 @@ export default function Find() {
     setLoading(false);
   };
 
+  const handleAddToCollection = async (card) => {
+    try {
+      await addCard({
+        card_id: card.id, card_name: card.name,
+        set_id: card.set_id, set_name: card.set_name,
+        set_series: card.set_series, card_number: card.card_number,
+        rarity: card.rarity, image_url: card.image_small,
+      });
+      setFeedback(f => ({ ...f, [card.id]: 'added' }));
+    } catch (err) { console.error(err); }
+  };
+
   const handleAddToWishlist = async (card) => {
-    if (!user) return;
-    await addToWishlist(user.id, {
-      card_id: card.id, card_name: card.name,
-      set_id: card.set_id, set_name: card.set_name,
-      card_number: card.card_number, rarity: card.rarity,
-      image_url: card.image_small,
-      market_price_gbp: card.prices_gbp?.market || null,
-    });
-    setAddedIds(prev => new Set([...prev, card.id]));
-    setWishlistIds(prev => new Set([...prev, card.id]));
+    try {
+      await addToWishlist(user.id, {
+        card_id: card.id, card_name: card.name,
+        set_id: card.set_id, set_name: card.set_name,
+        card_number: card.card_number, rarity: card.rarity,
+        image_url: card.image_small,
+        market_price_gbp: card.prices_gbp?.market || null,
+      });
+      setWishlistIds(prev => new Set([...prev, card.id]));
+      setFeedback(f => ({ ...f, [card.id]: feedback[card.id] === 'added' ? 'both' : 'wishlisted' }));
+    } catch (err) { console.error(err); }
   };
 
   const grouped = groupResults(results, groupBy);
-  const missingFromSet = setCards.filter(c => !myCardIds.has(c.id));
+
+  // Shared card action buttons used in both search and browse
+  const CardActions = ({ card }) => {
+    const owned  = myCardIds.has(card.id);
+    const wanted = wishlistIds.has(card.id);
+    const fb     = feedback[card.id];
+
+    return (
+      <div className="find-card-actions">
+        {fb === 'added' || fb === 'both' ? (
+          <span className="find-feedback find-feedback--added">✓ In collection</span>
+        ) : (
+          <button className="btn btn-primary btn-xs" onClick={() => handleAddToCollection(card)}>
+            + Collection
+          </button>
+        )}
+        {fb === 'wishlisted' || fb === 'both' || wanted ? (
+          <span className="find-feedback find-feedback--wishlist">✓ Wishlisted</span>
+        ) : (
+          <button className="btn btn-secondary btn-xs" onClick={() => handleAddToWishlist(card)}>
+            ♡ Wishlist
+          </button>
+        )}
+        {owned && fb !== 'added' && fb !== 'both' && (
+          <span className="find-owned-tag">Owned</span>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="page-container">
       <div className="page-header">
         <div>
           <h1>Find cards</h1>
-          <p>Search any Pokémon or browse sets — includes Illustration Rare &amp; special cards</p>
+          <p>Search any Pokémon or browse sets — add straight to collection or wishlist</p>
         </div>
       </div>
 
@@ -122,6 +164,7 @@ export default function Find() {
         <button className={tab === 'browse' ? 'tab active' : 'tab'} onClick={() => setTab('browse')}>Browse sets</button>
       </div>
 
+      {/* ─── SEARCH TAB ─── */}
       {tab === 'search' && (
         <>
           <div className="pokedex-search-wrap" ref={wrapRef}>
@@ -152,7 +195,10 @@ export default function Find() {
 
           {searched && !loading && (
             <div className="pokedex-results-header">
-              <div className="pokedex-count">{total} cards for <strong>{searched}</strong>{total > 50 && <span className="muted-text"> (first 50)</span>}</div>
+              <div className="pokedex-count">
+                {total} cards for <strong>{searched}</strong>
+                {total > 50 && <span className="muted-text"> (first 50)</span>}
+              </div>
               <div className="pokedex-controls">
                 <span className="control-label">Group by</span>
                 <div className="view-toggle">
@@ -178,8 +224,13 @@ export default function Find() {
                 {cards.map(card => (
                   <div key={card.id} className={`pokedex-card ${myCardIds.has(card.id) ? 'pokedex-card--owned' : ''}`}>
                     <div className="pokedex-card-img">
-                      {card.image_small ? <img src={card.image_small} alt={card.name} loading="lazy" /> : <div className="card-tile-placeholder">?</div>}
-                      {myCardIds.has(card.id) && <span className="owned-overlay">✓ Owned</span>}
+                      {card.image_small
+                        ? <img src={card.image_small} alt={card.name} loading="lazy" />
+                        : <div className="card-tile-placeholder">?</div>
+                      }
+                      {myCardIds.has(card.id) && feedback[card.id] !== 'added' && (
+                        <span className="owned-overlay">✓ Owned</span>
+                      )}
                     </div>
                     <div className="pokedex-card-info">
                       <div className="pokedex-card-name">{card.name}</div>
@@ -187,18 +238,15 @@ export default function Find() {
                       <div className="pokedex-card-num">#{card.card_number}</div>
                       {card.rarity && <div className="pokedex-card-rarity">{card.rarity}</div>}
                       {card.prices_gbp?.market
-                        ? <div className="pokedex-price"><span className="price-market">£{card.prices_gbp.market}</span>{card.prices_gbp.low && card.prices_gbp.high && <span className="price-range">£{card.prices_gbp.low} – £{card.prices_gbp.high}</span>}</div>
+                        ? <div className="pokedex-price">
+                            <span className="price-market">£{card.prices_gbp.market}</span>
+                            {card.prices_gbp.low && card.prices_gbp.high && (
+                              <span className="price-range">£{card.prices_gbp.low}–£{card.prices_gbp.high}</span>
+                            )}
+                          </div>
                         : <div className="pokedex-price price-unknown">Price unavailable</div>
                       }
-                      <div className="pokedex-card-actions">
-                        {!myCardIds.has(card.id) && (
-                          <button className={`btn btn-xs ${wishlistIds.has(card.id) || addedIds.has(card.id) ? 'btn-secondary' : 'btn-primary'}`}
-                            onClick={() => handleAddToWishlist(card)} disabled={wishlistIds.has(card.id) || addedIds.has(card.id)}>
-                            {wishlistIds.has(card.id) || addedIds.has(card.id) ? '✓' : '+ Wishlist'}
-                          </button>
-                        )}
-                        {card.tcgplayer_url && <a href={card.tcgplayer_url} target="_blank" rel="noopener noreferrer" className="btn btn-xs btn-secondary">Buy ↗</a>}
-                      </div>
+                      <CardActions card={card} />
                     </div>
                   </div>
                 ))}
@@ -206,14 +254,17 @@ export default function Find() {
             </div>
           ))}
 
-          {searched && !loading && results.length === 0 && <div className="empty-state">No cards found for "{searched}".</div>}
+          {searched && !loading && results.length === 0 && (
+            <div className="empty-state">No cards found for "{searched}".</div>
+          )}
 
           {!searched && !loading && (
             <div style={{marginTop:8}}>
               <div className="section-title" style={{marginBottom:12}}>Popular Pokémon</div>
               <div style={{display:'flex',flexWrap:'wrap',gap:8}}>
                 {POPULAR.map(name => (
-                  <button key={name} className="btn btn-secondary btn-sm" onClick={() => { setQuery(name); doSearch(name); }}>{name}</button>
+                  <button key={name} className="btn btn-secondary btn-sm"
+                    onClick={() => { setQuery(name); doSearch(name); }}>{name}</button>
                 ))}
               </div>
             </div>
@@ -221,36 +272,80 @@ export default function Find() {
         </>
       )}
 
+      {/* ─── BROWSE TAB ─── */}
       {tab === 'browse' && (
         <div className="browse-sets">
-          <select className="select select-lg" value={selectedSet} onChange={e => setSelectedSet(e.target.value)} disabled={loadingSets} style={{width:'100%',maxWidth:500,marginBottom:16}}>
+          <select
+            className="select select-lg"
+            value={selectedSet}
+            onChange={e => setSelectedSet(e.target.value)}
+            disabled={loadingSets}
+            style={{width:'100%',maxWidth:500,marginBottom:16}}
+          >
             <option value="">{loadingSets ? 'Loading sets...' : 'Choose a set...'}</option>
-            {sets.map(s => <option key={s.id} value={s.id}>{s.name} ({s.releaseDate?.slice(0,4)}) — {s.total} cards</option>)}
+            {sets.map(s => (
+              <option key={s.id} value={s.id}>
+                {s.name} ({s.releaseDate?.slice(0,4)}) — {s.total} cards
+              </option>
+            ))}
           </select>
+
           {loadingSet && <div className="pokedex-loading"><span className="pokeball-spin">⚡</span></div>}
+
           {selectedSet && setCards.length > 0 && !loadingSet && (
             <>
               <div className="set-progress" style={{marginBottom:16}}>
-                <div className="set-progress-label">You own {myCards.filter(c => c.set_id === selectedSet).length} / {setCards.length} · {missingFromSet.length} missing</div>
-                <div className="progress-bar"><div className="progress-fill" style={{width:`${(myCards.filter(c=>c.set_id===selectedSet).length/setCards.length)*100}%`}}/></div>
+                <div className="set-progress-label">
+                  You own {myCards.filter(c => c.set_id === selectedSet).length} / {setCards.length}
+                  · {setCards.filter(c => !myCardIds.has(c.id)).length} missing
+                </div>
+                <div className="progress-bar">
+                  <div className="progress-fill" style={{
+                    width:`${(myCards.filter(c=>c.set_id===selectedSet).length/setCards.length)*100}%`
+                  }}/>
+                </div>
               </div>
+
               <div className="card-grid-display">
                 {setCards.map(card => {
-                  const owned = myCardIds.has(card.id);
-                  const wanted = wishlistIds.has(card.id) || addedIds.has(card.id);
+                  const owned  = myCardIds.has(card.id);
+                  const wanted = wishlistIds.has(card.id);
+                  const fb     = feedback[card.id];
+
                   return (
                     <div key={card.id} className={`set-card-tile ${owned ? 'owned' : ''}`}>
                       <img src={card.image_small} alt={card.name} loading="lazy" />
                       <div className="set-card-name">{card.name}</div>
                       <div className="set-card-num">#{card.card_number}</div>
-                      {card.rarity && <div className="set-card-num" style={{color:'var(--yellow)',fontSize:10}}>{card.rarity}</div>}
-                      {card.prices_gbp?.market && <div className="set-card-price">£{card.prices_gbp.market}</div>}
-                      <div style={{padding:'0 4px 4px'}}>
-                        {owned ? <span className="owned-badge">Owned ✓</span> : (
-                          <button className={`btn btn-xs ${wanted ? 'btn-secondary' : 'btn-primary'}`}
-                            onClick={() => !wanted && handleAddToWishlist(card)} disabled={wanted}
-                            style={{width:'100%',justifyContent:'center'}}>
-                            {wanted ? '✓ Wishlisted' : '+ Want'}
+                      {card.rarity && (
+                        <div className="set-card-num" style={{color:'var(--yellow)',fontSize:10}}>{card.rarity}</div>
+                      )}
+                      {card.prices_gbp?.market && (
+                        <div className="set-card-price">£{card.prices_gbp.market}</div>
+                      )}
+                      <div style={{padding:'4px 4px 6px',display:'flex',flexDirection:'column',gap:4}}>
+                        {fb === 'added' || fb === 'both' ? (
+                          <span className="find-feedback find-feedback--added" style={{fontSize:10,textAlign:'center'}}>✓ Added</span>
+                        ) : (
+                          <button
+                            className="btn btn-primary btn-xs"
+                            onClick={() => handleAddToCollection(card)}
+                            style={{width:'100%',justifyContent:'center'}}
+                          >
+                            + Collection
+                          </button>
+                        )}
+                        {fb === 'wishlisted' || fb === 'both' || (wanted && !owned) ? (
+                          <span className="find-feedback find-feedback--wishlist" style={{fontSize:10,textAlign:'center'}}>✓ Wishlisted</span>
+                        ) : owned && fb !== 'added' ? (
+                          <span className="owned-badge">Owned ✓</span>
+                        ) : (
+                          <button
+                            className="btn btn-secondary btn-xs"
+                            onClick={() => handleAddToWishlist(card)}
+                            style={{width:'100%',justifyContent:'center'}}
+                          >
+                            ♡ Wishlist
                           </button>
                         )}
                       </div>
@@ -268,10 +363,17 @@ export default function Find() {
 
 function groupResults(cards, groupBy) {
   if (groupBy === 'none') return { all: cards };
-  if (groupBy === 'set') return cards.reduce((acc, card) => { const k = card.set_name || 'Unknown'; if (!acc[k]) acc[k] = []; acc[k].push(card); return acc; }, {});
+  if (groupBy === 'set') return cards.reduce((acc, card) => {
+    const k = card.set_name || 'Unknown'; if (!acc[k]) acc[k] = []; acc[k].push(card); return acc;
+  }, {});
   if (groupBy === 'rarity') {
-    const g = cards.reduce((acc, card) => { const k = card.rarity || 'Unknown'; if (!acc[k]) acc[k] = []; acc[k].push(card); return acc; }, {});
-    const s = {}; RARITY_ORDER.forEach(r => { if (g[r]) s[r] = g[r]; }); Object.keys(g).forEach(r => { if (!s[r]) s[r] = g[r]; }); return s;
+    const g = cards.reduce((acc, card) => {
+      const k = card.rarity || 'Unknown'; if (!acc[k]) acc[k] = []; acc[k].push(card); return acc;
+    }, {});
+    const s = {};
+    RARITY_ORDER.forEach(r => { if (g[r]) s[r] = g[r]; });
+    Object.keys(g).forEach(r => { if (!s[r]) s[r] = g[r]; });
+    return s;
   }
   return { all: cards };
 }

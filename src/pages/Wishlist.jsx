@@ -7,7 +7,8 @@ import { getSets, getCardsInSet, toGBP } from '../lib/tcgapi';
 
 export default function Wishlist() {
   const { user } = useAuth();
-  const { cards: myCards } = useCollection();
+  const { cards: myCards, addCard } = useCollection();
+  const [browseAdded, setBrowseAdded] = useState({}); // cardId → 'added'|'wishlisted'|'both'
   const [wishlist, setWishlist]       = useState([]);
   const [sets, setSets]               = useState([]);
   const [selectedSet, setSelectedSet] = useState('');
@@ -54,6 +55,19 @@ export default function Wishlist() {
     });
     const { data } = await getWishlist(user.id);
     setWishlist(data || []);
+    setBrowseAdded(p => ({ ...p, [card.id]: p[card.id] === 'added' ? 'both' : 'wishlisted' }));
+  };
+
+  const addToCollection = async (card) => {
+    try {
+      await addCard({
+        card_id: card.id, card_name: card.name,
+        set_id: card.set_id, set_name: card.set_name,
+        set_series: card.set_series, card_number: card.card_number,
+        rarity: card.rarity, image_url: card.image_small,
+      });
+      setBrowseAdded(p => ({ ...p, [card.id]: p[card.id] === 'wishlisted' ? 'both' : 'added' }));
+    } catch (err) { console.error(err); }
   };
 
   const removeFromList = async (id) => {
@@ -187,6 +201,7 @@ export default function Wishlist() {
                 {setCards.map(card => {
                   const owned  = myCardIds.has(card.id);
                   const wanted = wishlistIds.has(card.id);
+                  const fb     = browseAdded[card.id];
                   return (
                     <div key={card.id} className={`set-card-tile ${owned ? 'owned' : 'missing'}`}>
                       <img src={card.image_small} alt={card.name} loading="lazy" />
@@ -195,17 +210,24 @@ export default function Wishlist() {
                       {card.prices_gbp?.market && (
                         <div className="set-card-price">£{card.prices_gbp.market}</div>
                       )}
-                      {owned ? (
-                        <span className="owned-badge">Owned</span>
-                      ) : (
-                        <button
-                          className={`btn btn-xs ${wanted ? 'btn-secondary' : 'btn-primary'}`}
-                          onClick={() => !wanted && addToList(card)}
-                          disabled={wanted}
-                        >
-                          {wanted ? 'On wishlist' : '+ Want'}
-                        </button>
-                      )}
+                      <div style={{padding:'4px 4px 6px',display:'flex',flexDirection:'column',gap:4}}>
+                        {fb === 'added' || fb === 'both' ? (
+                          <span className="find-feedback find-feedback--added" style={{fontSize:10,textAlign:'center'}}>✓ Added</span>
+                        ) : (
+                          <button className="btn btn-primary btn-xs" onClick={() => addToCollection(card)} style={{width:'100%',justifyContent:'center'}}>
+                            + Collection
+                          </button>
+                        )}
+                        {fb === 'wishlisted' || fb === 'both' || (wanted && !owned) ? (
+                          <span className="find-feedback find-feedback--wishlist" style={{fontSize:10,textAlign:'center'}}>✓ Wishlisted</span>
+                        ) : owned && !fb ? (
+                          <span className="owned-badge">Owned ✓</span>
+                        ) : (
+                          <button className="btn btn-secondary btn-xs" onClick={() => addToList(card)} style={{width:'100%',justifyContent:'center'}}>
+                            ♡ Wishlist
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
