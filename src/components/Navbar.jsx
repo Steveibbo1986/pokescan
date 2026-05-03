@@ -22,32 +22,23 @@ export default function Navbar() {
   return (
     <nav className="navbar">
       <Link to="/" className="navbar-brand">
-        <span className="brand-icon">◈</span>
-        PokéScan
+        <span className="brand-icon">⚡</span>
+        Scanachu
       </Link>
-
       <div className="navbar-links">
         {nav.map(({ to, label, badge }) => (
-          <Link
-            key={to}
-            to={to}
-            className={`nav-link ${pathname === to ? 'active' : ''}`}
-          >
+          <Link key={to} to={to} className={`nav-link ${pathname === to ? 'active' : ''}`}>
             {label}
             {badge > 0 && <span className="nav-badge">{badge}</span>}
           </Link>
         ))}
       </div>
-
       <div className="navbar-user">
         <Link to="/profile" className="nav-avatar">
-          {profile?.avatar_url ? (
-            <img src={profile.avatar_url} alt={profile.username} />
-          ) : (
-            <div className="avatar-initials">
-              {(profile?.display_name || profile?.username || '?')[0].toUpperCase()}
-            </div>
-          )}
+          {profile?.avatar_url
+            ? <img src={profile.avatar_url} alt={profile.username} />
+            : <div className="avatar-initials">{(profile?.display_name || profile?.username || '?')[0].toUpperCase()}</div>
+          }
         </Link>
         <button className="btn-ghost" onClick={signOut}>Sign out</button>
       </div>
