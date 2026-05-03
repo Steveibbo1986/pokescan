@@ -6,7 +6,7 @@ import { signOut } from '../lib/supabase';
 
 export default function Navbar() {
   const { profile } = useAuth();
-  const { incoming } = useTrades();
+  const { incoming = [] } = useTrades();
   const { pathname } = useLocation();
 
   const nav = [
