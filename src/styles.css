@@ -656,3 +656,136 @@ img { max-width: 100%; display: block; }
   .wishlist-list-set { display: none; }
   .home-hero::before { display: none; }
 }
+
+/* ─── Scan mode chooser ──────────────────────────────────────── */
+.scan-mode-chooser { max-width: 560px; }
+.scan-chooser-hint { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+.scan-mode-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+.scan-mode-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px 16px; cursor: pointer;
+  text-align: center; transition: all .15s;
+}
+.scan-mode-card:hover { border-color: var(--yellow); box-shadow: var(--glow); transform: translateY(-2px); }
+.scan-mode-icon  { font-size: 32px; margin-bottom: 10px; }
+.scan-mode-label { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.scan-mode-desc  { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* ─── Grid preview ───────────────────────────────────────────── */
+.grid-preview-wrap { max-width: 480px; margin-bottom: 12px; }
+.grid-preview-img  {
+  width: 100%; border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: var(--shadow);
+}
+
+/* ─── Scan error ─────────────────────────────────────────────── */
+.scan-error {
+  max-width: 480px; margin-top: 10px;
+  padding: 10px 14px; border-radius: var(--radius-sm);
+  background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3);
+  color: var(--red); font-size: 13px;
+}
+
+/* ─── Scan Choose Screen ─────────────────────────────────────── */
+.scan-choose {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 28px; transition: border-color .2s; text-align: center;
+}
+.scan-choose:hover { border-color: var(--yellow); }
+.scan-choose-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px; margin-bottom: 16px;
+}
+.scan-option {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 16px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  cursor: pointer; transition: all .15s; text-align: center;
+}
+.scan-option:hover { border-color: var(--yellow); box-shadow: var(--glow); transform: translateY(-2px); }
+.scan-option--primary { border-color: rgba(255,215,0,.3); background: rgba(255,215,0,.05); }
+.scan-option--primary:hover { background: rgba(255,215,0,.1); }
+.scan-option-icon { font-size: 32px; }
+.scan-option-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.scan-option-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.scan-drag-hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+/* ─── Scan Single Photo ──────────────────────────────────────── */
+.scan-single { }
+.scan-single-preview {
+  position: relative; max-width: 480px;
+  border-radius: var(--radius); overflow: hidden;
+  border: 2px solid var(--border-yellow);
+}
+.scan-single-preview img { width: 100%; display: block; }
+.scan-single-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,.8));
+  padding: 16px 12px 12px;
+  font-size: 13px; color: var(--yellow); font-weight: 500;
+}
+.scan-error {
+  background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3);
+  color: var(--red); border-radius: var(--radius-sm);
+  padding: 10px 14px; font-size: 13px; margin-top: 12px;
+}
+
+/* ─── Scan mode chooser ──────────────────────────────────────── */
+.scan-mode-intro { font-size: 15px; color: var(--muted); margin-bottom: 16px; }
+.scan-mode-options { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 600px; }
+@media (max-width: 500px) { .scan-mode-options { grid-template-columns: 1fr; } }
+
+.scan-mode-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px; cursor: pointer;
+  text-align: left; transition: border-color .15s, box-shadow .15s;
+}
+.scan-mode-card:hover { border-color: var(--yellow); box-shadow: var(--glow); }
+.scan-mode-icon  { font-size: 32px; }
+.scan-mode-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.scan-mode-desc  { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+/* ─── Grid scanner ───────────────────────────────────────────── */
+.grid-drop-zone {
+  border: 2px dashed var(--border); border-radius: var(--radius);
+  padding: 40px 24px; text-align: center; cursor: pointer;
+  transition: border-color .2s, background .2s; max-width: 520px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.grid-drop-zone:hover { border-color: var(--yellow); background: rgba(255,215,0,.03); }
+.grid-drop-title { font-size: 16px; font-weight: 600; color: var(--text); }
+.grid-drop-hint  { font-size: 13px; color: var(--muted); max-width: 320px; }
+.grid-drop-buttons { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+
+.grid-preview-wrap { display: flex; flex-direction: column; gap: 10px; max-width: 520px; }
+.grid-preview-img  { width: 100%; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); }
+
+/* ─── Grid confirm panel ─────────────────────────────────────── */
+.grid-confirm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px; margin-top: 12px;
+}
+.grid-confirm-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); overflow: hidden;
+  opacity: .5; transition: opacity .15s, border-color .15s;
+}
+.grid-confirm-included { opacity: 1; border-color: var(--yellow); }
+.grid-confirm-unresolved { opacity: .35; }
+.grid-confirm-img { position: relative; aspect-ratio: 2.5/3.5; background: var(--black); overflow: hidden; }
+.grid-confirm-img img { width: 100%; height: 100%; object-fit: cover; }
+.grid-confirm-placeholder {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; color: var(--border);
+}
+.grid-confirm-check {
+  position: absolute; top: 5px; right: 5px; cursor: pointer;
+  background: rgba(0,0,0,.6); border-radius: 4px; padding: 2px;
+}
+.grid-confirm-check input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--yellow); }
+.grid-confirm-info { padding: 6px; }
+.grid-confirm-name  { font-size: 11px; font-weight: 600; line-height: 1.3; margin-bottom: 1px; }
+.grid-confirm-set   { font-size: 10px; color: var(--muted); }
+.grid-confirm-price { font-size: 11px; color: var(--green); font-weight: 600; margin-top: 2px; }
