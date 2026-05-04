@@ -5,7 +5,7 @@ import { useTrades } from '../hooks/useTrades';
 import { signOut } from '../lib/supabase';
 
 const NAV = [
-  { to: '/',           label: 'Home',       icon: '🏠' },
+  { to: '/home',        label: 'Home',       icon: '🏠' },
   { to: '/scan',       label: 'Scan',       icon: '📷' },
   { to: '/collection', label: 'Collection', icon: '📚' },
   { to: '/my-pokedex', label: 'Pokédex',    icon: '📖' },
@@ -22,7 +22,7 @@ export default function Navbar() {
 
   // Mobile bottom nav shows 5 most important items
   const mobileNav = [
-    { to: '/',           label: 'Home',    icon: '🏠' },
+    { to: '/home',        label: 'Home',    icon: '🏠' },
     { to: '/scan',       label: 'Scan',    icon: '📷' },
     { to: '/my-pokedex', label: 'Pokédex', icon: '📖' },
     { to: '/wishlist',   label: 'Wishlist',icon: '⭐' },
@@ -33,7 +33,7 @@ export default function Navbar() {
     <>
       {/* ─── Desktop top navbar ─── */}
       <nav className="navbar">
-        <Link to="/" className="navbar-brand">
+        <Link to="/home" className="navbar-brand">
           <span className="brand-icon">⚡</span>
           Scanachu
         </Link>

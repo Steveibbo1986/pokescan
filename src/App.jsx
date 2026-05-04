@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
+import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Home from './pages/Home';
 import Scan from './pages/Scan';
@@ -15,7 +16,7 @@ import Community from './pages/Community';
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
-  if (!user)   return <Navigate to="/auth" replace />;
+  if (!user)   return <Navigate to="/" replace />;
   return (
     <>
       <Navbar />
@@ -27,10 +28,15 @@ function ProtectedLayout({ children }) {
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
+
   return (
     <Routes>
-      <Route path="/auth"       element={user ? <Navigate to="/" replace /> : <Auth />} />
-      <Route path="/"           element={<ProtectedLayout><Home /></ProtectedLayout>} />
+      {/* Public routes */}
+      <Route path="/"     element={user ? <Navigate to="/home" replace /> : <Landing />} />
+      <Route path="/auth" element={user ? <Navigate to="/home" replace /> : <Auth />} />
+
+      {/* Protected routes */}
+      <Route path="/home"       element={<ProtectedLayout><Home /></ProtectedLayout>} />
       <Route path="/scan"       element={<ProtectedLayout><Scan /></ProtectedLayout>} />
       <Route path="/collection" element={<ProtectedLayout><Collection /></ProtectedLayout>} />
       <Route path="/my-pokedex" element={<ProtectedLayout><MyPokedex /></ProtectedLayout>} />

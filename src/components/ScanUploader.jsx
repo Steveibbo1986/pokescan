@@ -279,6 +279,7 @@ function ConfirmCardLarge({ result: r, idx, onToggle, onFix }) {
           ? <img src={r.tcgCard.image_small} alt={r.tcgCard?.name} />
           : <div className="confirm-card-large-placeholder">{r.originalName?.[0]||'?'}</div>
         }
+        {/* Checkbox — ticking includes/excludes from save */}
         {r.resolved && (
           <label className="confirm-card-large-check">
             <input type="checkbox" checked={!!r.include} onChange={e=>onToggle(e.target.checked)} />
@@ -288,6 +289,7 @@ function ConfirmCardLarge({ result: r, idx, onToggle, onFix }) {
           <div className="confirm-card-dupe-badge">Already owned</div>
         )}
       </div>
+
       <div className="confirm-card-large-info">
         {r.resolved ? (
           <>
@@ -298,11 +300,23 @@ function ConfirmCardLarge({ result: r, idx, onToggle, onFix }) {
             {r.tcgCard.prices_gbp?.market && <div className="confirm-card-large-price">£{r.tcgCard.prices_gbp.market}</div>}
           </>
         ) : (
-          <>
-            <div className="confirm-card-large-name" style={{color:'var(--muted)'}}>{r.originalName||'Not found'}</div>
-            <button className="btn btn-primary btn-xs" onClick={onFix} style={{marginTop:6}}>Fix card</button>
-          </>
+          <div className="confirm-card-large-name" style={{color:'var(--muted)',fontSize:11}}>{r.originalName||'Not found'}</div>
         )}
+
+        {/* Edit/Fix button always visible */}
+        <div className="confirm-card-large-actions">
+          <button className="confirm-fix-btn" onClick={onFix}>
+            {r.resolved ? '✏ Wrong card?' : '🔍 Find card'}
+          </button>
+          {r.resolved && (
+            <button
+              className={`confirm-toggle-btn ${r.include ? 'confirm-toggle-btn--on' : 'confirm-toggle-btn--off'}`}
+              onClick={() => onToggle(!r.include)}
+            >
+              {r.include ? '✓ Include' : '✕ Skip'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

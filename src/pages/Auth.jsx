@@ -26,7 +26,7 @@ export default function Auth() {
       } else {
         const { error } = await signIn(email, password);
         if (error) throw error;
-        navigate('/');
+        navigate('/home');
       }
     } catch (err) { setError(err.message || 'Something went wrong'); }
     setLoading(false);
