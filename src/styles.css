@@ -1060,3 +1060,238 @@ img { max-width: 100%; display: block; }
   padding: 2px 7px; border-radius: 10px;
   background: rgba(96,165,250,.15); color: var(--blue); border: 1px solid rgba(96,165,250,.3);
 }
+
+/* ─── Value predictions ──────────────────────────────────────── */
+.value-prediction-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px; margin-bottom: 14px;
+}
+.value-pred-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 12px 14px; text-align: center;
+}
+.value-pred-card--now  { border-color: rgba(96,165,250,.3); }
+.value-pred-card--best { border-color: rgba(255,215,0,.4); background: rgba(255,215,0,.05); }
+.value-pred-label  { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing:.04em; margin-bottom:4px; }
+.value-pred-amount { font-size: 20px; font-weight: 800; color: var(--green); line-height:1; margin-bottom:4px; }
+.value-pred-card--now  .value-pred-amount { color: var(--blue); }
+.value-pred-card--best .value-pred-amount { color: var(--yellow); }
+.value-pred-note   { font-size: 10px; color: var(--muted); }
+.value-pred-disclaimer {
+  font-size: 12px; color: var(--muted); line-height: 1.6;
+  padding: 10px 12px; background: var(--black);
+  border-radius: var(--radius-sm); border-left: 2px solid var(--border-yellow);
+}
+
+/* ─── Top cards on homepage ──────────────────────────────────── */
+.top-card-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+}
+.top-card-row:last-child { border-bottom: none; }
+.top-card-rank { font-size: 14px; font-weight: 800; color: var(--yellow); width: 24px; flex-shrink: 0; text-align:center; }
+.top-card-img  { width: 36px; height: 50px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+.top-card-img--placeholder { background: var(--surface2); border: 1px solid var(--border); }
+.top-card-info { flex: 1; min-width: 0; }
+.top-card-name   { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-card-set    { font-size: 11px; color: var(--muted); }
+.top-card-rarity { font-size: 10px; color: var(--yellow); }
+.top-card-value  { text-align: right; flex-shrink: 0; }
+.top-card-price  { font-size: 14px; font-weight: 700; color: var(--green); }
+.top-card-predicted { font-size: 10px; color: var(--muted); white-space: nowrap; }
+
+/* ─── Home alert ─────────────────────────────────────────────── */
+.home-alert {
+  display: block; text-decoration: none;
+  background: rgba(255,215,0,.08); border: 1px solid rgba(255,215,0,.3);
+  border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px;
+}
+
+/* ─── Duplicate warning ──────────────────────────────────────── */
+.duplicate-warning {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: rgba(255,215,0,.06); border: 1px solid rgba(255,215,0,.3);
+  border-radius: var(--radius); padding: 20px; max-width: 500px;
+  margin: 20px 0;
+}
+.duplicate-icon  { font-size: 32px; flex-shrink: 0; }
+.duplicate-body  { flex: 1; }
+.duplicate-title { font-size: 16px; font-weight: 700; color: var(--yellow); margin-bottom: 6px; }
+.duplicate-detail { font-size: 14px; color: var(--text); margin-bottom: 14px; line-height: 1.5; }
+.duplicate-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ─── Large confirm cards ────────────────────────────────────── */
+.confirm-grid-large {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+}
+.confirm-card-large {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  opacity: .5; transition: opacity .15s, border-color .15s;
+}
+.confirm-card-large--included  { opacity: 1; border-color: var(--yellow); }
+.confirm-card-large--unresolved { opacity: .35; }
+
+.confirm-card-large-img {
+  position: relative; aspect-ratio: 2.5/3.5;
+  background: var(--black); overflow: hidden;
+}
+.confirm-card-large-img img { width: 100%; height: 100%; object-fit: cover; }
+.confirm-card-large-placeholder {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 700; color: var(--border);
+}
+.confirm-card-large-check {
+  position: absolute; top: 6px; right: 6px;
+  background: rgba(0,0,0,.7); border-radius: 4px; padding: 3px; cursor: pointer;
+}
+.confirm-card-large-check input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--yellow); }
+.confirm-card-dupe-badge {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(255,215,0,.85); color: var(--black);
+  font-size: 10px; font-weight: 700; text-align: center; padding: 3px;
+}
+.confirm-card-large-info { padding: 8px; }
+.confirm-card-large-name   { font-size: 12px; font-weight: 700; line-height: 1.3; margin-bottom: 2px; }
+.confirm-card-large-set    { font-size: 10px; color: var(--muted); }
+.confirm-card-large-num    { font-size: 10px; color: var(--muted); }
+.confirm-card-large-rarity { font-size: 10px; color: var(--yellow); font-weight: 500; }
+.confirm-card-large-price  { font-size: 12px; color: var(--green); font-weight: 700; margin-top: 2px; }
+
+@media (max-width: 500px) {
+  .confirm-grid-large { grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); }
+  .value-prediction-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── Confirm panel v2 (larger cards) ───────────────────────── */
+.confirm-panel-v2 {
+  margin-top: 20px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.confirm-panel-header { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.confirm-panel-header h3 { font-size: 15px; font-weight: 600; color: var(--yellow); margin-bottom: 4px; }
+.duplicate-notice {
+  font-size: 12px; color: var(--muted); margin-top: 6px;
+  padding: 8px 10px; background: rgba(255,215,0,.07);
+  border-radius: var(--radius-sm); border-left: 2px solid rgba(255,215,0,.4);
+}
+.confirm-panel-footer { padding: 14px 16px; border-top: 1px solid var(--border); }
+
+.confirm-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px; padding: 16px;
+}
+
+.confirm-card-v2 {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); overflow: hidden;
+  transition: border-color .15s; opacity: .5;
+}
+.confirm-card-included  { opacity: 1; border-color: rgba(255,215,0,.4); }
+.confirm-card-unresolved { opacity: .4; }
+.confirm-card-duplicate { border-color: rgba(96,165,250,.4); }
+.confirm-card-editing   { opacity: 1; padding: 10px; }
+
+.confirm-card-img-v2 {
+  aspect-ratio: 2.5/3.5; position: relative; background: var(--black); overflow: hidden;
+}
+.confirm-card-img-v2 img { width: 100%; height: 100%; object-fit: cover; }
+.confirm-card-placeholder {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 36px; font-weight: 700; color: var(--border);
+}
+.confirm-card-owned-badge {
+  position: absolute; top: 0; left: 0; right: 0;
+  background: rgba(96,165,250,.7); color: #fff;
+  font-size: 10px; font-weight: 700; padding: 3px; text-align: center;
+}
+.confirm-card-checkbox {
+  position: absolute; bottom: 6px; right: 6px;
+  background: rgba(0,0,0,.6); border-radius: 4px; padding: 2px; cursor: pointer;
+}
+.confirm-card-checkbox input { width: 16px; height: 16px; accent-color: var(--yellow); cursor: pointer; }
+
+.confirm-card-details { padding: 8px; }
+.confirm-card-name   { font-size: 12px; font-weight: 700; margin-bottom: 2px; line-height: 1.3; }
+.confirm-card-set    { font-size: 10px; color: var(--muted); }
+.confirm-card-num    { font-size: 10px; color: var(--muted); }
+.confirm-card-rarity { font-size: 10px; color: var(--yellow); }
+.confirm-card-price  { font-size: 11px; color: var(--green); font-weight: 700; margin-top: 2px; }
+.confirm-card-fix-btn {
+  display: block; width: 100%; margin-top: 6px;
+  font-size: 10px; font-weight: 600; color: var(--yellow);
+  background: rgba(255,215,0,.08); border: 1px solid rgba(255,215,0,.2);
+  border-radius: 3px; padding: 3px; text-align: center; cursor: pointer;
+}
+.confirm-card-fix-btn:hover { background: rgba(255,215,0,.15); }
+
+/* Inline edit inside a confirm card */
+.confirm-edit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.confirm-edit-search { display: flex; gap: 6px; margin-bottom: 8px; }
+.confirm-edit-results { display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+.confirm-edit-result {
+  display: flex; gap: 8px; align-items: center; cursor: pointer;
+  padding: 6px; border-radius: var(--radius-sm); background: var(--surface2);
+  border: 1px solid var(--border); transition: border-color .15s;
+}
+.confirm-edit-result:hover { border-color: var(--yellow); }
+.confirm-edit-result img { width: 36px; height: 50px; object-fit: cover; border-radius: 3px; flex-shrink: 0; }
+
+/* Spinner */
+.spin-icon { display: inline-block; animation: spin 1s linear infinite; margin-right: 6px; }
+
+/* Larger upload slots */
+.card-grid-upload--large { max-width: 600px; }
+.card-grid-upload--large .upload-slot { min-height: 120px; }
+
+/* ─── Home page new panels ───────────────────────────────────── */
+.top5-rank {
+  width: 20px; flex-shrink: 0; font-size: 11px; font-weight: 700;
+  color: var(--yellow); text-align: center;
+}
+
+.set-value-list { display: flex; flex-direction: column; gap: 0; }
+.set-value-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+}
+.set-value-row:last-child { border-bottom: none; }
+.set-value-name  { font-size: 13px; font-weight: 500; }
+.set-value-count { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.set-value-amount { font-size: 14px; font-weight: 700; color: var(--green); white-space: nowrap; }
+
+/* Future value prediction */
+.prediction-note {
+  font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 16px;
+  padding: 10px 14px; background: rgba(255,215,0,.05);
+  border-radius: var(--radius-sm); border-left: 2px solid var(--border-yellow);
+}
+.prediction-grid {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.prediction-arrow { color: var(--muted); font-size: 20px; flex-shrink: 0; }
+.prediction-card {
+  flex: 1; min-width: 90px; background: var(--surface2);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 12px; text-align: center;
+}
+.prediction-card--future { border-color: rgba(74,222,128,.3); }
+.prediction-card--gold   { border-color: rgba(255,215,0,.5); background: rgba(255,215,0,.05); }
+.prediction-year  { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.prediction-value { font-size: 18px; font-weight: 800; color: var(--text); line-height: 1; margin-bottom: 4px; }
+.prediction-label { font-size: 11px; color: var(--muted); }
+.prediction-gain  { color: var(--green); font-weight: 600; }
+.prediction-card--gold .prediction-value { color: var(--yellow); }
+
+@media (max-width: 500px) {
+  .prediction-grid { gap: 4px; }
+  .prediction-card { min-width: 70px; padding: 8px 6px; }
+  .prediction-value { font-size: 15px; }
+  .prediction-arrow { display: none; }
+  .confirm-grid-v2 { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}
