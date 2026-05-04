@@ -2,26 +2,23 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 
-// Animated counter hook
-function useCounter(target, duration = 1500, start = false) {
+function useCounter(target, duration = 1400, start = false) {
   const [count, setCount] = useState(0);
   useEffect(() => {
     if (!start) return;
-    let startTime = null;
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const progress = Math.min((timestamp - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * target));
-      if (progress < 1) requestAnimationFrame(step);
+    let t0 = null;
+    const step = (ts) => {
+      if (!t0) t0 = ts;
+      const p = Math.min((ts - t0) / duration, 1);
+      setCount(Math.floor((1 - Math.pow(1 - p, 3)) * target));
+      if (p < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
   }, [target, duration, start]);
   return count;
 }
 
-// Intersection observer hook
-function useInView(threshold = 0.2) {
+function useInView(threshold = 0.15) {
   const ref = useRef(null);
   const [inView, setInView] = useState(false);
   useEffect(() => {
@@ -32,402 +29,368 @@ function useInView(threshold = 0.2) {
   return [ref, inView];
 }
 
-// Floating creature SVGs — original designs, no IP
-const CREATURES = [
-  { color: '#FFD700', shape: 'round', label: '⚡' },
-  { color: '#FF6B6B', shape: 'spiky', label: '🔥' },
-  { color: '#4ECDC4', shape: 'smooth', label: '💧' },
-  { color: '#A8E063', shape: 'leaf', label: '🌿' },
-  { color: '#C77DFF', shape: 'mystic', label: '✨' },
-  { color: '#FFB347', shape: 'flame', label: '⭐' },
+const TYPES = [
+  { e:'⚡', n:'Electric', c:'#F5A623' },
+  { e:'🔥', n:'Fire',     c:'#E8563A' },
+  { e:'💧', n:'Water',    c:'#3B9DD2' },
+  { e:'🌿', n:'Grass',    c:'#5BAD3A' },
+  { e:'✨', n:'Psychic',  c:'#9B59B6' },
+  { e:'🌙', n:'Dark',     c:'#546E7A' },
+];
+
+const FEATS = [
+  { i:'📷', c:'#F5A623', t:'AI card scanner — free forever',
+    d:'Point your camera and scan up to 9 cards at once. AI identifies every single one in seconds. No scan limits, no paywalls, ever.' },
+  { i:'📖', c:'#5BAD3A', t:'Living Pokédex',
+    d:'All 1,025 creatures across every generation in one beautiful grid. Tap any missing one and instantly find cards to add.' },
+  { i:'💰', c:'#3B9DD2', t:'Live GBP collection value',
+    d:'Real market prices in pounds for everything you own, updated live. Know exactly what your whole collection is worth.' },
+  { i:'📈', c:'#9B59B6', t:'30-year value forecast',
+    d:"Cards appreciate. See what yours could be worth in 10, 20 and 30 years — great motivation to keep them in top condition!" },
+  { i:'⇄', c:'#E8563A', t:'Trade with friends & family',
+    d:'Add friends, browse each other\'s collections, and swap cards to fill gaps. The cheapest way to complete your sets.' },
+  { i:'⭐', c:'#F5A623', t:'Wishlist with buy links',
+    d:'Spot a card you need? Add it to your wishlist in one tap. Get instant price comparisons and direct buy links.' },
+];
+
+const RIVALS = [
+  { name:'Collectr',     scan:'Limited free scans', free:'Paid scanner', trade:'No', forecast:'No' },
+  { name:'Dex',          scan:'Poor reviews',       free:'Paid extras',  trade:'Basic', forecast:'No' },
+  { name:'TCGPlayer',    scan:'None',               free:'Marketplace',  trade:'No',    forecast:'No' },
+  { name:'Scanachu ⚡',  scan:'✓ AI, unlimited',    free:'✓ 100% free', trade:'✓ Full', forecast:'✓ 30yr', us:true },
 ];
 
 export default function Landing() {
   const [statsRef, statsInView] = useInView();
-  const [heroVisible, setHeroVisible] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const cards   = useCounter(20000, 1600, statsInView);
+  const pokemon = useCounter(1025,  1300, statsInView);
 
-  const cards   = useCounter(20000, 1800, statsInView);
-  const pokemon = useCounter(1025,  1500, statsInView);
-  const sets    = useCounter(150,   1200, statsInView);
-
-  useEffect(() => {
-    const t = setTimeout(() => setHeroVisible(true), 100);
-    return () => clearTimeout(t);
-  }, []);
+  useEffect(() => { const t = setTimeout(() => setLoaded(true), 80); return () => clearTimeout(t); }, []);
 
   return (
-    <div className="lp">
+    <div className="lp3">
 
-      {/* ── Header ─────────────────────────────────────────── */}
-      <header className="lp-header">
-        <div className="lp-logo">
-          <span className="lp-bolt">⚡</span>
-          <span>Scanachu</span>
+      {/* ── Header ── */}
+      <header className="lp3-hdr">
+        <div className="lp3-logo">
+          <span className="lp3-bolt">⚡</span>Scanachu
         </div>
-        <nav className="lp-nav">
-          <a href="#how" className="lp-nav-link">How it works</a>
-          <a href="#features" className="lp-nav-link">Features</a>
-          <Link to="/auth" className="lp-nav-signin">Sign in</Link>
-          <Link to="/auth" className="lp-nav-cta">Get started free →</Link>
+        <nav className="lp3-nav">
+          <a href="#features" className="lp3-navlink">Features</a>
+          <a href="#compare"  className="lp3-navlink">Compare</a>
+          <Link to="/auth" className="lp3-navlink">Sign in</Link>
+          <Link to="/auth" className="lp3-nav-cta">Start free →</Link>
         </nav>
       </header>
 
-      {/* ── Hero ───────────────────────────────────────────── */}
-      <section className="lp-hero">
-        {/* Animated background particles */}
-        <div className="lp-particles" aria-hidden="true">
-          {[...Array(20)].map((_, i) => (
-            <div key={i} className="lp-particle" style={{
-              '--delay': `${(i * 0.3) % 3}s`,
-              '--x': `${(i * 17 + 5) % 95}%`,
-              '--dur': `${3 + (i % 4)}s`,
-              '--size': `${4 + (i % 6)}px`,
-              '--col': CREATURES[i % CREATURES.length].color,
-            }} />
+      {/* ── Hero ── */}
+      <section className="lp3-hero">
+        {/* Animated confetti dots */}
+        <div className="lp3-confetti" aria-hidden>
+          {[...Array(28)].map((_,i)=>(
+            <div key={i} className="lp3-dot" style={{
+              '--x':`${(i*13+5)%94}%`,
+              '--c': TYPES[i%6].c,
+              '--d':`${(i*.22)%3.5}s`,
+              '--t':`${3.5+(i%3.5)}s`,
+              '--s':`${5+(i%6)}px`,
+            }}/>
           ))}
         </div>
 
-        {/* Electric arc lines */}
-        <svg className="lp-arc" viewBox="0 0 1200 600" preserveAspectRatio="none" aria-hidden="true">
-          <path d="M0,300 Q200,100 400,300 T800,300 T1200,300" className="arc-line arc-1"/>
-          <path d="M0,350 Q300,150 600,350 T1200,350" className="arc-line arc-2"/>
-          <path d="M0,250 Q400,450 800,250 T1200,250" className="arc-line arc-3"/>
-        </svg>
+        <div className={`lp3-hero-body ${loaded?'in':''}`}>
 
-        <div className={`lp-hero-content ${heroVisible ? 'visible' : ''}`}>
-          <div className="lp-hero-badge">
-            <span className="lp-badge-dot" />
-            The card tracker for every collector
+          {/* Free badge — bold differentiator */}
+          <div className="lp3-free-badge">
+            <span className="lp3-free-star">★</span>
+            100% free · Unlimited AI scans · No paywall
+            <span className="lp3-free-star">★</span>
           </div>
 
-          <h1 className="lp-hero-h1">
-            <span className="lp-h1-line lp-h1-line--1">Scan your cards.</span>
-            <span className="lp-h1-line lp-h1-line--2">
-              Build your <span className="lp-h1-glow">legend.</span>
-            </span>
+          <h1 className="lp3-h1">
+            The card tracker<br/>
+            that's <span className="lp3-spark">always free.</span>
           </h1>
 
-          <p className="lp-hero-sub">
-            Point your camera at any trading card — AI identifies it instantly,
-            tracks your collection, shows its value today and what it could be
-            worth in 30 years. For collectors of all ages.
+          <p className="lp3-hero-p">
+            Scan trading cards with AI, track your living collection,
+            see what everything's worth today — and what it could be
+            worth in 30 years. For every collector, every age.
           </p>
 
-          <div className="lp-hero-btns">
-            <Link to="/auth" className="lp-btn-primary">
-              <span className="lp-btn-shine" />
-              Start collecting free
+          <div className="lp3-hero-btns">
+            <Link to="/auth" className="lp3-cta">
+              <span className="lp3-cta-shine"/>
+              Start your collection — it's free
               <span>→</span>
             </Link>
-            <a href="#how" className="lp-btn-ghost">See how it works</a>
+            <a href="#how" className="lp3-ghost">See how it works ↓</a>
           </div>
 
-          {/* Floating creature cards */}
-          <div className="lp-creature-row" aria-hidden="true">
-            {CREATURES.map((c, i) => (
-              <div key={i} className="lp-creature-card" style={{
-                '--delay': `${i * 0.15}s`,
-                '--float-delay': `${i * 0.4}s`,
-                background: `linear-gradient(135deg, ${c.color}22, ${c.color}08)`,
-                borderColor: `${c.color}44`,
+          {/* Type chips */}
+          <div className="lp3-chips">
+            {TYPES.map((t,i)=>(
+              <div key={i} className="lp3-chip" style={{
+                '--c':t.c,'--d':`${i*.11}s`,'--fd':`${i*.45}s`
               }}>
-                <div className="lp-creature-icon" style={{ color: c.color }}>{c.label}</div>
-                <div className="lp-creature-bar" style={{ background: c.color }} />
-                <div className="lp-creature-lines">
-                  <div className="lp-creature-line" style={{ background: `${c.color}66` }} />
-                  <div className="lp-creature-line lp-creature-line--short" style={{ background: `${c.color}44` }} />
-                </div>
+                <span>{t.e}</span><span>{t.n}</span>
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ── Stats ──────────────────────────────────────────── */}
-      <section className="lp-stats" ref={statsRef}>
-        <div className="lp-container">
-          <div className="lp-stats-grid">
-            <div className="lp-stat">
-              <div className="lp-stat-num">{cards.toLocaleString()}+</div>
-              <div className="lp-stat-label">Cards in database</div>
+        {/* Floating card mockups */}
+        <div className={`lp3-cards ${loaded?'in':''}`} aria-hidden>
+          {[
+            { e:'⚡', n:'Zapchu', v:'£24', r:'Holo Rare', c:'#F5A623', d:0 },
+            { e:'🔥', n:'Flareosaurus', v:'£189', r:'Ultra Rare', c:'#E8563A', d:.18 },
+            { e:'💧', n:'Aquabite', v:'£12', r:'Uncommon', c:'#3B9DD2', d:.34 },
+          ].map((card,i)=>(
+            <div key={i} className="lp3-card" style={{'--d':`${card.d}s`,'--c':card.c}}>
+              <div className="lp3-card-shine"/>
+              <div className="lp3-card-type">{card.e} {card.r}</div>
+              <div className="lp3-card-name">{card.n}</div>
+              <div className="lp3-card-val">{card.v}</div>
+              <div className="lp3-card-bar" style={{background:card.c}}/>
             </div>
-            <div className="lp-stat-divider" />
-            <div className="lp-stat">
-              <div className="lp-stat-num">{pokemon.toLocaleString()}</div>
-              <div className="lp-stat-label">Creatures to collect</div>
-            </div>
-            <div className="lp-stat-divider" />
-            <div className="lp-stat">
-              <div className="lp-stat-num">{sets}+</div>
-              <div className="lp-stat-label">Card sets supported</div>
-            </div>
-            <div className="lp-stat-divider" />
-            <div className="lp-stat">
-              <div className="lp-stat-num">Free</div>
-              <div className="lp-stat-label">To get started</div>
-            </div>
-          </div>
+          ))}
         </div>
       </section>
 
-      {/* ── How it works ───────────────────────────────────── */}
-      <section className="lp-how" id="how">
-        <div className="lp-container">
-          <div className="lp-section-eyebrow">How it works</div>
-          <h2 className="lp-section-h2">From photo to collection<br/>in three steps</h2>
+      {/* ── Stats ── */}
+      <div className="lp3-stats" ref={statsRef}>
+        <Stat n={`${cards.toLocaleString()}+`} l="Cards in database" />
+        <div className="lp3-sep"/>
+        <Stat n={pokemon.toLocaleString()} l="Creatures to collect" />
+        <div className="lp3-sep"/>
+        <Stat n="Free" l="Always, forever" gold />
+        <div className="lp3-sep"/>
+        <Stat n="0" l="Scan limits" />
+      </div>
 
-          <div className="lp-steps">
+      {/* ── How ── */}
+      <section className="lp3-how" id="how">
+        <div className="lp3-wrap">
+          <div className="lp3-eyebrow">How it works</div>
+          <h2 className="lp3-h2">From photo to collection<br/>in three easy steps</h2>
+          <div className="lp3-steps">
             {[
-              {
-                num: '01', icon: '📷',
-                title: 'Snap your cards',
-                desc: 'Hold up to 9 cards in a binder page, take one photo. Or snap individual cards. Works on any phone camera — even older, vintage cards.',
-                color: '#FFD700',
-              },
-              {
-                num: '02', icon: '🤖',
-                title: 'AI does the rest',
-                desc: 'Our AI reads every card — name, set, number, rarity. Matched against 20,000+ cards in seconds. Tap to fix anything it gets wrong.',
-                color: '#4ECDC4',
-              },
-              {
-                num: '03', icon: '📈',
-                title: 'Watch your value grow',
-                desc: "See what your collection is worth today in GBP. See which creatures you're still missing. Discover what it could be worth in 10, 20 or 30 years.",
-                color: '#A8E063',
-              },
-            ].map((step, i) => (
-              <StepCard key={i} {...step} delay={i * 0.15} />
-            ))}
+              { n:'1', i:'📷', c:'#F5A623', t:'Snap your cards', b:'Lay up to 9 cards flat and take one photo, or snap individually. Works on any phone — even vintage Base Set cards from the 90s.' },
+              { n:'2', i:'🤖', c:'#3B9DD2', t:'AI reads every card', b:'Name, set, number, rarity — identified in seconds from our 20,000+ card database. Tap to fix anything in one go.' },
+              { n:'3', i:'💎', c:'#9B59B6', t:'Watch it grow', b:'Live GBP values, missing card tracking, set completion, and a peek at what your collection could be worth decades from now.' },
+            ].map((s,i)=><Step key={i} {...s} delay={i*.12}/>)}
           </div>
         </div>
       </section>
 
-      {/* ── Features ───────────────────────────────────────── */}
-      <section className="lp-features" id="features">
-        <div className="lp-container">
-          <div className="lp-section-eyebrow">Features</div>
-          <h2 className="lp-section-h2">Everything a collector needs</h2>
-
-          <div className="lp-feat-grid">
-            <FeatureCard
-              icon="📖" color="#FFD700" size="large"
-              title="Living Pokédex"
-              desc="All 1,025 collectable creatures in one grid, Gen 1 through Gen 9. Green means you have a card for them — grey means they're still out there. Tap any missing one to hunt it down."
-              extra={
-                <div className="lp-dex-dots">
-                  {[1,1,1,0,1,0,1,1,0,1,1,0,0,1,0,1,1,1].map((o,i) => (
-                    <div key={i} className={`lp-dex-dot ${o ? 'on' : 'off'}`} />
-                  ))}
-                </div>
-              }
-            />
-            <FeatureCard
-              icon="💰" color="#4ade80"
-              title="Real-time GBP value"
-              desc="Live market prices for every card you own. See your total collection value and a breakdown by set."
-            />
-            <FeatureCard
-              icon="📈" color="#60a5fa"
-              title="30-year forecast"
-              desc="Trading cards have appreciated year-on-year for decades. See a projection of what your collection could be worth — great motivation to keep them in perfect condition!"
-            />
-            <FeatureCard
-              icon="⇄" color="#c084fc"
-              title="Trade with friends"
-              desc="Add friends, browse each other's collections, and propose trades. Swap duplicates, complete sets, and help each other catch them all."
-            />
-            <FeatureCard
-              icon="⭐" color="#f97316"
-              title="Wishlist & buy links"
-              desc="Add any card to your wishlist with one tap. See the current price range and instant links to buy on TCGPlayer and eBay."
-            />
-            <FeatureCard
-              icon="🔢" color="#FFD700" size="large"
-              title="Find any card, any way"
-              desc="Search by creature name, browse complete sets, or type the card number from the card itself (e.g. 004/102). Every result shows the current price and lets you add to collection or wishlist instantly."
-              extra={
-                <div className="lp-search-demo">
-                  <div className="lp-search-bar">
-                    <span style={{opacity:.5}}>🔍</span>
-                    <span style={{color:'#FFD700'}}>004/102</span>
-                    <span className="lp-search-cursor"/>
-                  </div>
-                  <div className="lp-search-pill">🔥 Charizard · Base Set · £189</div>
-                </div>
-              }
-            />
+      {/* ── Features ── */}
+      <section className="lp3-feats" id="features">
+        <div className="lp3-wrap">
+          <div className="lp3-eyebrow">Features</div>
+          <h2 className="lp3-h2">Everything you need,<br/>nothing behind a paywall</h2>
+          <div className="lp3-feat-grid">
+            {FEATS.map((f,i)=><Feat key={i} {...f} delay={i*.08}/>)}
           </div>
         </div>
       </section>
 
-      {/* ── Value prediction ───────────────────────────────── */}
-      <section className="lp-prediction">
-        <div className="lp-container">
-          <div className="lp-prediction-inner">
-            <div className="lp-prediction-text">
-              <div className="lp-section-eyebrow">Investment potential</div>
-              <h2 className="lp-section-h2" style={{marginBottom:16}}>
-                Your collection could be<br/>
-                <span className="lp-gold-text">worth a fortune</span>
-              </h2>
-              <p className="lp-prediction-body">
-                Trading cards have consistently grown in value for over 25 years. A card worth £3 in 1999
-                can be worth £200+ today. Scanachu shows you exactly what every card in your collection is
-                worth right now — and projects where it could be heading. The better you look after them,
-                the more they'll be worth.
-              </p>
-              <div className="lp-prediction-tips">
-                <div className="lp-tip">🛡️ Keep cards in sleeves</div>
-                <div className="lp-tip">📁 Store in binders</div>
-                <div className="lp-tip">🌡️ Avoid heat & humidity</div>
-                <div className="lp-tip">✋ Handle by the edges</div>
-              </div>
-              <Link to="/auth" className="lp-btn-primary" style={{marginTop:28,display:'inline-flex'}}>
-                Track your collection free →
-              </Link>
-            </div>
-            <ValueChart />
+      {/* ── Comparison table ── */}
+      <section className="lp3-compare" id="compare">
+        <div className="lp3-wrap">
+          <div className="lp3-eyebrow">How we compare</div>
+          <h2 className="lp3-h2">The only one that's<br/>truly free — and better</h2>
+          <div className="lp3-table-wrap">
+            <table className="lp3-table">
+              <thead>
+                <tr>
+                  <th>App</th>
+                  <th>AI card scanner</th>
+                  <th>Pricing model</th>
+                  <th>Friend trading</th>
+                  <th>Value forecast</th>
+                </tr>
+              </thead>
+              <tbody>
+                {RIVALS.map((r,i)=>(
+                  <tr key={i} className={r.us?'lp3-us-row':''}>
+                    <td className="lp3-app-name">{r.name}</td>
+                    <td>{r.scan}</td>
+                    <td>{r.free}</td>
+                    <td>{r.trade}</td>
+                    <td>{r.forecast}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
+          <p className="lp3-compare-note">
+            Competitors either charge for scanning, limit free scans, or lock features behind subscriptions.
+            Scanachu is — and will always be — free for all core features.
+          </p>
         </div>
       </section>
 
-      {/* ── For everyone ───────────────────────────────────── */}
-      <section className="lp-everyone">
-        <div className="lp-container">
-          <div className="lp-section-eyebrow">Who is Scanachu for?</div>
-          <h2 className="lp-section-h2">Built for every kind of collector</h2>
-          <div className="lp-audience-grid">
-            {[
-              { icon:'🧒', title:'Young collectors', desc:'Start your living Pokédex from scratch. See which creatures you still need and build towards completing every generation.' },
-              { icon:'🧑', title:'Seasoned trainers', desc:'You have hundreds of cards in binders. Scanachu digitises your whole collection in minutes and tells you what it\'s all worth.' },
-              { icon:'👨‍👩‍👧', title:'Families', desc:'Collect together. Add family members as friends, see each other\'s collections, and trade cards between you to help complete sets.' },
-              { icon:'💼', title:'Investors', desc:'Treat rare cards as assets. Track market value over time, see predicted appreciation, and know exactly what\'s in your portfolio.' },
-            ].map((a, i) => (
-              <div key={i} className="lp-audience-card" style={{'--delay':`${i*0.1}s`}}>
-                <div className="lp-audience-icon">{a.icon}</div>
-                <h3>{a.title}</h3>
-                <p>{a.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Community ──────────────────────────────────────── */}
-      <section className="lp-community">
-        <div className="lp-container">
-          <div className="lp-community-inner">
-            <div className="lp-community-icon">👥</div>
-            <h2 className="lp-section-h2" style={{marginBottom:12}}>Better together</h2>
-            <p className="lp-community-desc">
-              Add friends by username, browse their collections and propose trades in seconds.
-              The quickest way to fill in the gaps in your collection.
+      {/* ── Value / forecast ── */}
+      <section className="lp3-value">
+        <div className="lp3-wrap lp3-value-inner">
+          <div className="lp3-value-text">
+            <div className="lp3-eyebrow">Investment potential</div>
+            <h2 className="lp3-h2" style={{marginBottom:16}}>
+              Looking after your cards<br/>
+              <span className="lp3-gold">really pays off</span>
+            </h2>
+            <p className="lp3-value-p">
+              Trading cards have grown in value almost every year since the late 90s.
+              Scanachu shows you what every card is worth right now in GBP — and
+              projects where it could be heading. The better condition you keep them in,
+              the more they'll be worth.
             </p>
-            <div className="lp-community-chips">
-              {['Add friends by username','Browse friends\' collections','Propose trades','See who wants which cards','Real-time notifications'].map(c => (
-                <div key={c} className="lp-chip">✓ {c}</div>
+            <div className="lp3-tips">
+              {['🛡️ Use card sleeves','📁 Store in binders','🌡️ Avoid heat & damp','✋ Handle by the edges'].map(t=>(
+                <span key={t} className="lp3-tip">{t}</span>
               ))}
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Final CTA ──────────────────────────────────────── */}
-      <section className="lp-cta">
-        <div className="lp-container">
-          <div className="lp-cta-inner">
-            <div className="lp-cta-bolts" aria-hidden="true">
-              {[...Array(5)].map((_,i) => (
-                <span key={i} className="lp-cta-bolt" style={{'--i':i}}>⚡</span>
-              ))}
-            </div>
-            <h2 className="lp-cta-h2">Ready to catch them all?</h2>
-            <p className="lp-cta-sub">Free to use. No credit card needed. Start scanning in minutes.</p>
-            <Link to="/auth" className="lp-btn-primary lp-btn-primary--xl">
-              <span className="lp-btn-shine" />
-              Create your free account
-              <span>→</span>
+            <Link to="/auth" className="lp3-cta" style={{marginTop:28,display:'inline-flex'}}>
+              Start tracking free →
             </Link>
-            <div className="lp-cta-signin">
-              Already have an account? <Link to="/auth" className="lp-cta-link">Sign in here</Link>
+          </div>
+          <ValueChart/>
+        </div>
+      </section>
+
+      {/* ── For everyone ── */}
+      <section className="lp3-everyone">
+        <div className="lp3-wrap">
+          <div className="lp3-eyebrow">Who's it for?</div>
+          <h2 className="lp3-h2">Built for every collector</h2>
+          <div className="lp3-aud-grid">
+            {[
+              { i:'🧒', c:'#F5A623', t:'Young collectors',  b:"Start from scratch. Build your collection one card at a time and track every creature you've caught." },
+              { i:'🧑', c:'#3B9DD2', t:'Seasoned trainers', b:"Hundreds of cards in binders? Scan the whole lot in minutes and finally know what it's all worth." },
+              { i:'👨‍👩‍👧', c:'#5BAD3A', t:'Families',           b:"Collect together! Add family as friends, browse each other's cards and trade to fill the gaps." },
+              { i:'💼', c:'#9B59B6', t:'Savvy investors',   b:"Track market prices, spot trends and see projected appreciation — treat your rarest cards as real assets." },
+            ].map((a,i)=><AudCard key={i} {...a} delay={i*.1}/>)}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Community ── */}
+      <section className="lp3-community">
+        <div className="lp3-wrap">
+          <div className="lp3-comm-box">
+            <span className="lp3-comm-emoji">👥</span>
+            <h2 className="lp3-h2" style={{marginBottom:12}}>Better together</h2>
+            <p className="lp3-comm-p">
+              Add friends by username, browse their collections and propose card trades in a few taps.
+              The quickest way to complete your collection — without spending more than you need to.
+            </p>
+            <div className="lp3-comm-pills">
+              {['Add friends by username','Browse their collections','Propose & accept trades','See who wants which cards'].map(p=>(
+                <span key={p} className="lp3-cpill">✓ {p}</span>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      <footer className="lp-footer">
-        <div className="lp-logo" style={{fontSize:18,justifyContent:'center'}}>
-          <span className="lp-bolt">⚡</span> Scanachu
+      {/* ── Final CTA ── */}
+      <section className="lp3-final">
+        <div className="lp3-wrap lp3-final-inner">
+          <div className="lp3-final-bolts" aria-hidden>
+            {[...Array(6)].map((_,i)=><span key={i} className="lp3-fb" style={{'--i':i}}>⚡</span>)}
+          </div>
+          <div className="lp3-final-icon">🎴</div>
+          <h2 className="lp3-final-h2">Ready to start collecting?</h2>
+          <p className="lp3-final-sub">Free forever. No credit card. Scan your first card in under a minute.</p>
+          <Link to="/auth" className="lp3-cta lp3-cta--xl">
+            <span className="lp3-cta-shine"/>
+            Create your free account →
+          </Link>
+          <p className="lp3-final-small">
+            Already have an account? <Link to="/auth" className="lp3-final-link">Sign in</Link>
+          </p>
         </div>
-        <p className="lp-footer-note">
-          Built for card collectors everywhere. Not affiliated with Nintendo, Game Freak, or The Pokémon Company.
-        </p>
+      </section>
+
+      <footer className="lp3-footer">
+        <div className="lp3-logo"><span className="lp3-bolt">⚡</span>Scanachu</div>
+        <p className="lp3-foot-note">Not affiliated with Nintendo, Game Freak or The Pokémon Company. Built with ♥ for collectors everywhere.</p>
       </footer>
-
     </div>
   );
 }
 
-// ─── Step card with scroll animation ─────────────────────────
-function StepCard({ num, icon, title, desc, color, delay }) {
+function Stat({ n, l, gold }) {
+  return (
+    <div className="lp3-stat">
+      <span className={`lp3-stat-n${gold?' lp3-stat-gold':''}`}>{n}</span>
+      <span className="lp3-stat-l">{l}</span>
+    </div>
+  );
+}
+
+function Step({ n, i, c, t, b, delay }) {
   const [ref, inView] = useInView(0.1);
   return (
-    <div ref={ref} className={`lp-step ${inView ? 'lp-step--visible' : ''}`} style={{'--delay':`${delay}s`,'--col':color}}>
-      <div className="lp-step-num" style={{color}}>{num}</div>
-      <div className="lp-step-icon">{icon}</div>
-      <h3 className="lp-step-title">{title}</h3>
-      <p className="lp-step-desc">{desc}</p>
-      <div className="lp-step-bar" style={{background:color}} />
+    <div ref={ref} className={`lp3-step${inView?' in':''}`} style={{'--d':`${delay}s`,'--c':c}}>
+      <div className="lp3-step-n" style={{color:c}}>{n}</div>
+      <div className="lp3-step-i">{i}</div>
+      <h3 className="lp3-step-t">{t}</h3>
+      <p  className="lp3-step-b">{b}</p>
     </div>
   );
 }
 
-// ─── Feature card ─────────────────────────────────────────────
-function FeatureCard({ icon, color, title, desc, extra, size }) {
+function Feat({ i, c, t, d, delay }) {
   const [ref, inView] = useInView(0.1);
   return (
-    <div ref={ref} className={`lp-feat ${inView ? 'lp-feat--visible' : ''} ${size === 'large' ? 'lp-feat--large' : ''}`}
-      style={{'--col':color}}>
-      <div className="lp-feat-icon" style={{color}}>{icon}</div>
-      <h3 className="lp-feat-title">{title}</h3>
-      <p className="lp-feat-desc">{desc}</p>
-      {extra}
+    <div ref={ref} className={`lp3-feat${inView?' in':''}`} style={{'--d':`${delay}s`,'--c':c}}>
+      <div className="lp3-feat-i">{i}</div>
+      <h3 className="lp3-feat-t">{t}</h3>
+      <p  className="lp3-feat-d">{d}</p>
     </div>
   );
 }
 
-// ─── Animated value chart ─────────────────────────────────────
+function AudCard({ i, c, t, b, delay }) {
+  const [ref, inView] = useInView(0.1);
+  return (
+    <div ref={ref} className={`lp3-aud${inView?' in':''}`} style={{'--d':`${delay}s`,'--c':c}}>
+      <div className="lp3-aud-i" style={{background:`${c}22`,borderColor:`${c}55`}}>{i}</div>
+      <h3 className="lp3-aud-t">{t}</h3>
+      <p  className="lp3-aud-b">{b}</p>
+    </div>
+  );
+}
+
 function ValueChart() {
   const [ref, inView] = useInView(0.2);
   const bars = [
-    { label: 'Now',   val: '£120',   h: 20,  col: '#666' },
-    { label: '10yr',  val: '£310',   h: 40,  col: '#4ade80' },
-    { label: '20yr',  val: '£820',   h: 65,  col: '#60a5fa' },
-    { label: '30yr',  val: '£2,100', h: 100, col: '#FFD700' },
+    { l:'Today', v:'£120', h:16, c:'#aaa' },
+    { l:'10 yr', v:'£310', h:37, c:'#5BAD3A' },
+    { l:'20 yr', v:'£820', h:62, c:'#3B9DD2' },
+    { l:'30 yr', v:'£2,100',h:100,c:'#F5A623' },
   ];
   return (
-    <div ref={ref} className="lp-chart">
-      <div className="lp-chart-title">Estimated collection value over time</div>
-      <div className="lp-chart-bars">
-        {bars.map((b, i) => (
-          <div key={i} className="lp-chart-col">
-            <div className="lp-chart-val" style={{color: b.col, opacity: inView ? 1 : 0, transition:`opacity .4s ${i*0.15}s`}}>
-              {b.val}
+    <div ref={ref} className="lp3-chart">
+      <div className="lp3-chart-ttl">Estimated growth over time</div>
+      <div className="lp3-chart-bars">
+        {bars.map((b,i)=>(
+          <div key={i} className="lp3-chart-col">
+            <span className="lp3-chart-v" style={{color:b.c,opacity:inView?1:0,transition:`opacity .5s ${i*.15}s`}}>{b.v}</span>
+            <div className="lp3-chart-track">
+              <div className="lp3-chart-bar" style={{
+                background:b.c, height:inView?`${b.h}%`:'0%',
+                transitionDelay:`${i*.15}s`,
+                boxShadow:inView?`0 0 14px ${b.c}88`:'none',
+              }}/>
             </div>
-            <div className="lp-chart-bar-wrap">
-              <div className="lp-chart-bar" style={{
-                background: b.col,
-                height: inView ? `${b.h}%` : '0%',
-                transitionDelay: `${i * 0.15}s`,
-                boxShadow: inView ? `0 0 16px ${b.col}66` : 'none',
-              }} />
-            </div>
-            <div className="lp-chart-label">{b.label}</div>
+            <span className="lp3-chart-l">{b.l}</span>
           </div>
         ))}
       </div>
-      <div className="lp-chart-note">* Illustrative estimate based on historical appreciation rates</div>
+      <p className="lp3-chart-note">* Illustrative, based on historical appreciation rates</p>
     </div>
   );
 }
