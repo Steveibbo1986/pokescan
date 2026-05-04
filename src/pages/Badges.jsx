@@ -7,8 +7,14 @@ import { BADGES, buildStats, getEarnedBadges } from '../lib/badges';
 import { getWishlist, supabase } from '../lib/supabase';
 import { useEffect } from 'react';
 
-// Name-to-dex-number map (reused from MyPokedex)
-import { COMMON_NAME_MAP } from './MyPokedex';
+// Extract the base Pokémon name from a card name (e.g. "Charizard ex" → "charizard")
+function baseName(cardName) {
+  return (cardName || '')
+    .toLowerCase()
+    .replace(/\s*(ex|gx|v|vmax|vstar|mega|dark|shining|light|e4|δ|fb|gl|4|sp|c|prime|lvl\.?\s*\d+|\d+)\s*$/gi, '')
+    .replace(/[^a-z0-9 .\-♂♀]/g, '')
+    .trim();
+}
 
 export default function Badges() {
   const { cards }         = useCollection();
@@ -29,14 +35,15 @@ export default function Badges() {
       .then(({ data }) => setFriends(data || []));
   }, [user]);
 
-  // Build dex map
+  // Build dex map: unique Pokémon name → cards (use base name to dedupe)
   const dexMap = useMemo(() => {
     const map = {};
     for (const card of cards) {
-      const nameLower = card.card_name?.toLowerCase().replace(/[^a-z0-9 .\-♂♀]/g, '').trim();
-      let dexNum = COMMON_NAME_MAP[nameLower];
-      if (!dexNum) dexNum = COMMON_NAME_MAP[nameLower?.split(' ')[0]];
-      if (dexNum) { if (!map[dexNum]) map[dexNum] = []; map[dexNum].push(card); }
+      const name = baseName(card.card_name);
+      if (name) {
+        if (!map[name]) map[name] = [];
+        map[name].push(card);
+      }
     }
     return map;
   }, [cards]);

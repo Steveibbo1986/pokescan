@@ -13,8 +13,8 @@ export const BADGES = [
   // ── Pokédex milestones ──
   { id: 'dex_10',        icon: '🔴', name: 'Starting out',      desc: 'Cards for 10 different Pokémon',      color: '#E8563A', check: (s) => s.dexCount >= 10 },
   { id: 'dex_50',        icon: '🟡', name: 'Pokémon trainer',   desc: 'Cards for 50 different Pokémon',      color: '#F5A623', check: (s) => s.dexCount >= 50 },
-  { id: 'dex_151',       icon: '🏅', name: 'Original 151',      desc: 'Cards for all Gen 1 Pokémon',         color: '#E53935', check: (s) => s.gen1Complete },
-  { id: 'dex_251',       icon: '🥇', name: 'Johto champion',    desc: 'Cards for all Gen 1 & 2 Pokémon',    color: '#FFD700', check: (s) => s.gen2Complete },
+  { id: 'dex_151',       icon: '🏅', name: 'Original 151',      desc: 'Cards for 151+ different Pokémon',    color: '#E53935', check: (s) => s.dexCount >= 151 },
+  { id: 'dex_251',       icon: '🥇', name: 'Johto champion',    desc: 'Cards for 251+ different Pokémon',    color: '#FFD700', check: (s) => s.dexCount >= 251 },
   { id: 'dex_500',       icon: '⭐', name: 'Half the Pokédex',  desc: 'Cards for 500 different Pokémon',     color: '#9B59B6', check: (s) => s.dexCount >= 500 },
   { id: 'dex_full',      icon: '🌟', name: 'Pokédex complete!', desc: 'Cards for all 1,025 Pokémon',         color: '#FFD700', check: (s) => s.dexCount >= 1025 },
 
@@ -50,11 +50,7 @@ export const BADGES = [
 
 // Build stats object from collection + social data
 export function buildStats({ cards, trades, friends, wishlist, dexMap }) {
-  const dexCount   = Object.keys(dexMap || {}).length;
-  const gen1Ids    = Array.from({ length: 151 }, (_, i) => i + 1);
-  const gen2Ids    = Array.from({ length: 100 }, (_, i) => i + 152);
-  const gen1Complete = gen1Ids.every(n => dexMap?.[n]);
-  const gen2Complete = gen1Complete && gen2Ids.every(n => dexMap?.[n]);
+  const dexCount = Object.keys(dexMap || {}).length;
 
   const holoCount      = cards.filter(c => c.rarity?.toLowerCase().includes('holo')).length;
   const ultraRareCount = cards.filter(c => c.rarity?.toLowerCase().includes('ultra')).length;
@@ -69,8 +65,6 @@ export function buildStats({ cards, trades, friends, wishlist, dexMap }) {
   return {
     totalCards: cards.length,
     dexCount,
-    gen1Complete,
-    gen2Complete,
     holoCount,
     ultraRareCount,
     collectionValue,
