@@ -49,7 +49,7 @@ export default function Navbar() {
           })}
         </div>
         <div className="navbar-user">
-          <Link to="/profile" className="nav-avatar">
+          <Link to="/account" className="nav-avatar">
             {profile?.avatar_url
               ? <img src={profile.avatar_url} alt={profile.username} />
               : <div className="avatar-initials">{(profile?.display_name || profile?.username || '?')[0].toUpperCase()}</div>
@@ -83,6 +83,7 @@ function MobileMore({ pathname, incoming }) {
     { to: '/collection', label: 'Collection', icon: '📚' },
     { to: '/find',       label: 'Find',       icon: '🔍' },
     { to: '/community',  label: 'Community',  icon: '👥' },
+    { to: '/account',    label: 'Account',    icon: '⚙️' },
   ];
 
   const moreActive = moreItems.some(i => i.to === pathname);

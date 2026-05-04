@@ -12,6 +12,7 @@ import Find from './pages/Find';
 import Wishlist from './pages/Wishlist';
 import Trades from './pages/Trades';
 import Community from './pages/Community';
+import Account from './pages/Account';
 
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
@@ -44,6 +45,7 @@ function AppRoutes() {
       <Route path="/wishlist"   element={<ProtectedLayout><Wishlist /></ProtectedLayout>} />
       <Route path="/trades"     element={<ProtectedLayout><Trades /></ProtectedLayout>} />
       <Route path="/community"  element={<ProtectedLayout><Community /></ProtectedLayout>} />
+      <Route path="/account"    element={<ProtectedLayout><Account /></ProtectedLayout>} />
       <Route path="*"           element={<Navigate to="/" replace />} />
     </Routes>
   );
