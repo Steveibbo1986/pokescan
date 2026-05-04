@@ -39,7 +39,7 @@ const TYPES = [
 ];
 
 const FEATS = [
-  { i:'📷', c:'#F5A623', t:'AI card scanner — free forever',
+  { i:'📷', c:'#F5A623', t:'AI card scanner — no limits',
     d:'Point your camera and scan up to 9 cards at once. AI identifies every single one in seconds. No scan limits, no paywalls, ever.' },
   { i:'📖', c:'#5BAD3A', t:'Living Pokédex',
     d:'All 1,025 creatures across every generation in one beautiful grid. Tap any missing one and instantly find cards to add.' },
@@ -57,7 +57,7 @@ const RIVALS = [
   { name:'Collectr',     scan:'Limited free scans', free:'Paid scanner', trade:'No', forecast:'No' },
   { name:'Dex',          scan:'Poor reviews',       free:'Paid extras',  trade:'Basic', forecast:'No' },
   { name:'TCGPlayer',    scan:'None',               free:'Marketplace',  trade:'No',    forecast:'No' },
-  { name:'Scanachu ⚡',  scan:'✓ AI, unlimited',    free:'✓ 100% free', trade:'✓ Full', forecast:'✓ 30yr', us:true },
+  { name:'Scanachu ⚡',  scan:'✓ AI, unlimited',    free:'✓ Free to start', trade:'✓ Full', forecast:'✓ 30yr', us:true },
 ];
 
 export default function Landing() {
@@ -104,13 +104,13 @@ export default function Landing() {
           {/* Free badge — bold differentiator */}
           <div className="lp3-free-badge">
             <span className="lp3-free-star">★</span>
-            100% free · Unlimited AI scans · No paywall
+            Free to start · Unlimited AI scans · No credit card
             <span className="lp3-free-star">★</span>
           </div>
 
           <h1 className="lp3-h1">
             The card tracker<br/>
-            that's <span className="lp3-spark">always free.</span>
+            that doesn't cost a thing.<span className="lp3-spark"/>
           </h1>
 
           <p className="lp3-hero-p">
@@ -164,7 +164,7 @@ export default function Landing() {
         <div className="lp3-sep"/>
         <Stat n={pokemon.toLocaleString()} l="Creatures to collect" />
         <div className="lp3-sep"/>
-        <Stat n="Free" l="Always, forever" gold />
+        <Stat n="Free" l="To get started" gold />
         <div className="lp3-sep"/>
         <Stat n="0" l="Scan limits" />
       </div>
@@ -199,7 +199,7 @@ export default function Landing() {
       <section className="lp3-compare" id="compare">
         <div className="lp3-wrap">
           <div className="lp3-eyebrow">How we compare</div>
-          <h2 className="lp3-h2">The only one that's<br/>truly free — and better</h2>
+          <h2 className="lp3-h2">The only one built<br/>for collectors, not profit</h2>
           <div className="lp3-table-wrap">
             <table className="lp3-table">
               <thead>
@@ -226,7 +226,7 @@ export default function Landing() {
           </div>
           <p className="lp3-compare-note">
             Competitors either charge for scanning, limit free scans, or lock features behind subscriptions.
-            Scanachu is — and will always be — free for all core features.
+            Scanachu is free to start with no scan limits. We believe great tools should be accessible to all collectors.
           </p>
         </div>
       </section>
@@ -302,7 +302,7 @@ export default function Landing() {
           </div>
           <div className="lp3-final-icon">🎴</div>
           <h2 className="lp3-final-h2">Ready to start collecting?</h2>
-          <p className="lp3-final-sub">Free forever. No credit card. Scan your first card in under a minute.</p>
+          <p className="lp3-final-sub">Free to start. No credit card. Scan your first card in under a minute.</p>
           <Link to="/auth" className="lp3-cta lp3-cta--xl">
             <span className="lp3-cta-shine"/>
             Create your free account →
