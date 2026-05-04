@@ -1,6 +1,7 @@
 // src/App.jsx
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
+import { ThemeProvider } from './hooks/useTheme';
 import Navbar from './components/Navbar';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
@@ -29,14 +30,10 @@ function ProtectedLayout({ children }) {
 function AppRoutes() {
   const { user, loading } = useAuth();
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
-
   return (
     <Routes>
-      {/* Public routes */}
-      <Route path="/"     element={user ? <Navigate to="/home" replace /> : <Landing />} />
-      <Route path="/auth" element={user ? <Navigate to="/home" replace /> : <Auth />} />
-
-      {/* Protected routes */}
+      <Route path="/"           element={user ? <Navigate to="/home" replace /> : <Landing />} />
+      <Route path="/auth"       element={user ? <Navigate to="/home" replace /> : <Auth />} />
       <Route path="/home"       element={<ProtectedLayout><Home /></ProtectedLayout>} />
       <Route path="/scan"       element={<ProtectedLayout><Scan /></ProtectedLayout>} />
       <Route path="/collection" element={<ProtectedLayout><Collection /></ProtectedLayout>} />
@@ -53,10 +50,12 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
