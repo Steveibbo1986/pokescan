@@ -5,8 +5,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCollection } from '../hooks/useCollection';
-
-// All 1025 Pokémon with their national dex numbers and names
 // Grouped by generation for filtering
 const GENERATIONS = [
   { label: 'Gen 1', range: [1, 151],   name: 'Kanto'   },
@@ -249,9 +247,10 @@ export default function MyPokedex() {
   const { cards } = useCollection();
 
   const [selectedGen, setSelectedGen] = useState('all');
-  const [filter, setFilter]           = useState('all'); // 'all' | 'owned' | 'missing'
-  const [expandedDex, setExpandedDex] = useState(null); // dex number
+  const [filter, setFilter]           = useState('all');
+  const [expandedDex, setExpandedDex] = useState(null);
   const [search, setSearch]           = useState('');
+  const [actionSheet, setActionSheet] = useState(null); // { pokemon, displayName, owned }
 
   // Build a map: dex number → array of collection cards
   const dexMap = useMemo(() => {
@@ -314,10 +313,18 @@ export default function MyPokedex() {
   }, [selectedGen, filter, dexMap, search]);
 
   const handleMissingClick = (pokemon) => {
-    // Find name from map
     const name = Object.entries(COMMON_NAME_MAP).find(([, v]) => v === pokemon.number)?.[0] || '';
     const displayName = name.charAt(0).toUpperCase() + name.slice(1);
-    navigate(`/find?q=${encodeURIComponent(displayName)}`);
+    setActionSheet({ pokemon, displayName, owned: null });
+  };
+
+  const handleOwnedExpand = (pokemon, owned, displayName) => {
+    // Toggle expand on first tap, show action sheet only if already expanded
+    if (expandedDex === pokemon.number) {
+      // already expanded - do nothing on tile click, actions are in the panel
+    } else {
+      setExpandedDex(pokemon.number);
+    }
   };
 
   return (
@@ -382,7 +389,6 @@ export default function MyPokedex() {
           const displayName = pokeName ? pokeName.charAt(0).toUpperCase() + pokeName.slice(1) : `#${pokemon.number}`;
 
           if (owned) {
-            // Pick the "best" card as cover (holo > rare > first one)
             const coverCard = owned.sort((a, b) => {
               const rarityScore = (r) => {
                 if (!r) return 0;
@@ -411,7 +417,6 @@ export default function MyPokedex() {
                   </div>
                 </div>
 
-                {/* Expanded: show all cards for this Pokémon */}
                 {isExpanded && (
                   <div className="dex-expanded">
                     <div className="dex-expanded-header">
@@ -430,19 +435,26 @@ export default function MyPokedex() {
                         </div>
                       ))}
                     </div>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => navigate(`/find?q=${encodeURIComponent(displayName)}`)}
-                      style={{marginTop:8, width:'100%', justifyContent:'center'}}
-                    >
-                      Find more {displayName} cards ↗
-                    </button>
+                    {/* Quick action buttons */}
+                    <div className="dex-expanded-actions">
+                      <button className="dex-action-btn" onClick={() => { setExpandedDex(null); navigate('/scan'); }}>
+                        <span className="dex-action-icon">📷</span>
+                        <span>Scan another</span>
+                      </button>
+                      <button className="dex-action-btn" onClick={() => { setExpandedDex(null); navigate(`/find?q=${encodeURIComponent(displayName)}`); }}>
+                        <span className="dex-action-icon">🔍</span>
+                        <span>Search cards</span>
+                      </button>
+                      <button className="dex-action-btn" onClick={() => { setExpandedDex(null); setActionSheet({ pokemon, displayName, owned }); }}>
+                        <span className="dex-action-icon">🔢</span>
+                        <span>By number</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             );
           } else {
-            // Missing Pokémon
             return (
               <div
                 key={pokemon.number}
@@ -469,6 +481,102 @@ export default function MyPokedex() {
       {visiblePokemon.length === 0 && (
         <div className="empty-state">No Pokémon match your filters.</div>
       )}
+
+      {/* Action sheet — pops up when tapping a missing Pokémon or "By number" on owned */}
+      {actionSheet && (
+        <PokemonActionSheet
+          pokemon={actionSheet.pokemon}
+          displayName={actionSheet.displayName}
+          owned={actionSheet.owned}
+          onClose={() => setActionSheet(null)}
+          onNavigate={(path) => { setActionSheet(null); navigate(path); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Action sheet ─────────────────────────────────────────────
+function PokemonActionSheet({ pokemon, displayName, owned, onClose, onNavigate }) {
+  return (
+    <div className="action-sheet-overlay" onClick={onClose}>
+      <div className="action-sheet" onClick={e => e.stopPropagation()}>
+        <div className="action-sheet-handle" />
+
+        <div className="action-sheet-header">
+          <img
+            src={pokemon.sprite}
+            alt={displayName}
+            className="action-sheet-sprite"
+          />
+          <div>
+            <div className="action-sheet-title">{displayName}</div>
+            <div className="action-sheet-sub">
+              #{String(pokemon.number).padStart(3, '0')}
+              {owned
+                ? ` · ${owned.length} card${owned.length !== 1 ? 's' : ''} in collection`
+                : ' · Not in your collection yet'
+              }
+            </div>
+          </div>
+        </div>
+
+        <div className="action-sheet-label">
+          {owned ? 'Add more cards for this Pokémon' : 'Find a card for this Pokémon'}
+        </div>
+
+        <div className="action-sheet-options">
+          <button
+            className="action-sheet-btn"
+            onClick={() => onNavigate('/scan')}
+          >
+            <span className="asb-icon">📷</span>
+            <div className="asb-text">
+              <div className="asb-title">Scan a card</div>
+              <div className="asb-desc">Take a photo — AI identifies it instantly</div>
+            </div>
+            <span className="asb-arrow">›</span>
+          </button>
+
+          <button
+            className="action-sheet-btn"
+            onClick={() => onNavigate(`/find?q=${encodeURIComponent(displayName)}`)}
+          >
+            <span className="asb-icon">🔍</span>
+            <div className="asb-text">
+              <div className="asb-title">Search for {displayName}</div>
+              <div className="asb-desc">Browse all cards, sets and rarities</div>
+            </div>
+            <span className="asb-arrow">›</span>
+          </button>
+
+          <button
+            className="action-sheet-btn"
+            onClick={() => onNavigate('/scan?mode=number')}
+          >
+            <span className="asb-icon">🔢</span>
+            <div className="asb-text">
+              <div className="asb-title">Search by card number</div>
+              <div className="asb-desc">Type the number from the card, e.g. 025/102</div>
+            </div>
+            <span className="asb-arrow">›</span>
+          </button>
+
+          <button
+            className="action-sheet-btn"
+            onClick={() => onNavigate('/find')}
+          >
+            <span className="asb-icon">📦</span>
+            <div className="asb-text">
+              <div className="asb-title">Browse sets</div>
+              <div className="asb-desc">See every card in a set and what you're missing</div>
+            </div>
+            <span className="asb-arrow">›</span>
+          </button>
+        </div>
+
+        <button className="action-sheet-close" onClick={onClose}>Cancel</button>
+      </div>
     </div>
   );
 }
