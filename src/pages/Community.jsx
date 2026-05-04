@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
 import TradeModal from '../components/TradeModal';
 import CardGrid from '../components/CardGrid';
+import FriendInvite from '../components/FriendInvite';
 
 export default function Community() {
   const { user } = useAuth();
@@ -123,6 +124,9 @@ export default function Community() {
         <button className={tab === 'find'     ? 'tab active' : 'tab'} onClick={() => setTab('find')}>
           Find people
         </button>
+        <button className={tab === 'invite'   ? 'tab active' : 'tab'} onClick={() => setTab('invite')}>
+          🔗 Invite
+        </button>
         {browsing && (
           <button className={tab === 'browse' ? 'tab active' : 'tab'} onClick={() => setTab('browse')}>
             {browsing.user.display_name || browsing.user.username}'s cards
@@ -236,6 +240,9 @@ export default function Community() {
           <CardGrid cards={browsing.cards} showTradeable emptyMessage="This user has no cards yet" />
         </div>
       )}
+
+      {/* Invite tab */}
+      {tab === 'invite' && <FriendInvite />}
 
       {tradeWith && (
         <TradeModal targetUser={tradeWith.user} targetCards={tradeWith.cards} onClose={() => setTradeWith(null)} />
