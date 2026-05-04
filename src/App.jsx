@@ -14,6 +14,7 @@ import Wishlist from './pages/Wishlist';
 import Trades from './pages/Trades';
 import Community from './pages/Community';
 import Account from './pages/Account';
+import Join from './pages/Join';
 
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
@@ -32,8 +33,12 @@ function AppRoutes() {
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
   return (
     <Routes>
-      <Route path="/"           element={user ? <Navigate to="/home" replace /> : <Landing />} />
-      <Route path="/auth"       element={user ? <Navigate to="/home" replace /> : <Auth />} />
+      {/* Public */}
+      <Route path="/"              element={user ? <Navigate to="/home" replace /> : <Landing />} />
+      <Route path="/auth"          element={user ? <Navigate to="/home" replace /> : <Auth />} />
+      <Route path="/join/:username" element={<Join />} />
+
+      {/* Protected */}
       <Route path="/home"       element={<ProtectedLayout><Home /></ProtectedLayout>} />
       <Route path="/scan"       element={<ProtectedLayout><Scan /></ProtectedLayout>} />
       <Route path="/collection" element={<ProtectedLayout><Collection /></ProtectedLayout>} />
