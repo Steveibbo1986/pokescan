@@ -90,7 +90,7 @@ function MobileMore({ pathname, toggle, theme }) {
     { to: '/collection',   label: 'Collection',   icon: '📚' },
     { to: '/find',         label: 'Find',         icon: '🔍' },
     { to: '/community',    label: 'Community',    icon: '👥' },
-    { to: '/achievements', label: 'Achievements', icon: '🏆' },
+    { to: '/badges', label: 'Badges', icon: '🏆' },
     { to: '/analytics',    label: 'Analytics',    icon: '📊' },
     { to: '/account',      label: 'Account',      icon: '⚙️' },
   ];

@@ -129,12 +129,12 @@ export default function Home() {
 
       {/* Quick actions */}
       <div className="quick-actions">
-        <Link to="/scan" className="quick-action"><span className="qa-icon">📷</span><span>Scan cards</span></Link>
+        <Link to="/scan"       className="quick-action"><span className="qa-icon">📷</span><span>Scan cards</span></Link>
         <Link to="/my-pokedex" className="quick-action"><span className="qa-icon">📖</span><span>My Pokédex</span></Link>
-        <Link to="/find" className="quick-action"><span className="qa-icon">🔍</span><span>Find cards</span></Link>
-        <Link to="/wishlist" className="quick-action"><span className="qa-icon">⭐</span><span>Wishlist</span></Link>
-        <Link to="/trades" className="quick-action"><span className="qa-icon">⇄</span><span>Trades</span></Link>
-        <Link to="/community" className="quick-action"><span className="qa-icon">👥</span><span>Community</span></Link>
+        <Link to="/find"       className="quick-action"><span className="qa-icon">🔍</span><span>Find cards</span></Link>
+        <Link to="/wishlist"   className="quick-action"><span className="qa-icon">⭐</span><span>Wishlist</span></Link>
+        <Link to="/badges"     className="quick-action"><span className="qa-icon">🏆</span><span>Badges</span></Link>
+        <Link to="/analytics"  className="quick-action"><span className="qa-icon">📊</span><span>Analytics</span></Link>
       </div>
 
       {/* Trade alert */}
@@ -144,6 +144,27 @@ export default function Home() {
           <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>Tap to review and respond</div>
         </Link>
       )}
+
+      {/* Badges panel */}
+      <Link to="/badges" style={{display:'block',textDecoration:'none',marginBottom:20}}>
+        <div className="home-panel" style={{cursor:'pointer'}}>
+          <div className="home-panel-header">
+            <h2>🏆 Your badges</h2>
+            <span className="link-sm">View all →</span>
+          </div>
+          <div className="home-panel-body">
+            <div style={{fontSize:13,color:'var(--muted)',marginBottom:10}}>
+              Unlock badges by scanning cards, completing sets, making trades and more. Tap to see your progress.
+            </div>
+            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+              {cards.length > 0  && <span style={{background:'rgba(245,166,35,.1)',color:'var(--yellow)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'100px',fontSize:12,fontWeight:700,padding:'4px 12px'}}>📷 First scan ✓</span>}
+              {cards.length >= 10 && <span style={{background:'rgba(245,166,35,.1)',color:'var(--yellow)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'100px',fontSize:12,fontWeight:700,padding:'4px 12px'}}>🃏 10 cards ✓</span>}
+              {cards.length >= 50 && <span style={{background:'rgba(245,166,35,.1)',color:'var(--yellow)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'100px',fontSize:12,fontWeight:700,padding:'4px 12px'}}>📚 50 cards ✓</span>}
+              {cards.length === 0 && <span style={{color:'var(--muted)',fontSize:13}}>Scan your first card to start earning badges!</span>}
+            </div>
+          </div>
+        </div>
+      </Link>
 
       {/* Two-col panels */}
       <div className="home-grid">
