@@ -4,9 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
 import { useTrades } from '../hooks/useTrades';
-import { getWishlist, getFriends } from '../lib/supabase';
-import { ACHIEVEMENTS, computeStats, getEarned } from '../lib/achievements';
-import AchievementToast from '../components/AchievementToast';
+import { getWishlist } from '../lib/supabase';
 
 // Pokémon card appreciation rates based on historical data
 // Vintage (pre-2000) ~15%/yr, Modern holos ~8%/yr, Commons ~3%/yr
@@ -31,32 +29,11 @@ export default function Home() {
   const { cards, bySet }  = useCollection();
   const { incoming }      = useTrades();
   const [wishlist, setWishlist] = useState([]);
-  const [friends, setFriends]   = useState([]);
-  const [newAchievement, setNewAchievement] = useState(null);
-  const [shownAchs, setShownAchs] = useState(() => {
-    try { return new Set(JSON.parse(localStorage.getItem('scanachu-shown-achs') || '[]')); } catch { return new Set(); }
-  });
 
   useEffect(() => {
-    if (user) {
-      getWishlist(user.id).then(({ data }) => setWishlist(data || []));
-      getFriends(user.id).then(({ data }) => setFriends(data || []));
-    }
+    if (user) getWishlist(user.id).then(({ data }) => setWishlist(data || []));
   }, [user]);
 
-  // Check for newly unlocked achievements
-  const stats = useMemo(() => computeStats({ cards, trades: incoming, friends, wishlist }), [cards, incoming, friends, wishlist]);
-  const earnedIds = useMemo(() => new Set(getEarned(stats).map(a => a.id)), [stats]);
-
-  useEffect(() => {
-    const newOnes = ACHIEVEMENTS.filter(a => earnedIds.has(a.id) && !shownAchs.has(a.id));
-    if (newOnes.length > 0) {
-      setNewAchievement(newOnes[0]);
-      const updated = new Set([...shownAchs, ...newOnes.map(a => a.id)]);
-      setShownAchs(updated);
-      localStorage.setItem('scanachu-shown-achs', JSON.stringify([...updated]));
-    }
-  }, [earnedIds]);
 
   const collectionValue = useMemo(() =>
     cards.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
@@ -101,62 +78,10 @@ export default function Home() {
     })).sort((a, b) => b.value - a.value).slice(0, 5)
   , [bySet]);
 
-  const collectionValue = useMemo(() =>
-    cards.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
-  , [cards]);
-
-  const wishlistTotal = useMemo(() =>
-    wishlist.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
-  , [wishlist]);
-
-  const top5Cards = useMemo(() =>
-    [...cards]
-      .filter(c => c.market_price_gbp > 0)
-      .sort((a, b) => parseFloat(b.market_price_gbp) - parseFloat(a.market_price_gbp))
-      .slice(0, 5)
-  , [cards]);
-
-  const projections = useMemo(() => {
-    if (collectionValue === 0) return null;
-    const totalRate = cards.reduce((sum, c) => {
-      const val = parseFloat(c.market_price_gbp || 0);
-      if (!val) return sum;
-      const r = c.rarity?.toLowerCase() || '';
-      const rate = r.includes('illustration') || r.includes('special') ? 0.12
-        : r.includes('ultra') || r.includes('secret') ? 0.10
-        : r.includes('holo') ? 0.08
-        : r.includes('rare') ? 0.06
-        : 0.04;
-      return sum + (val * rate);
-    }, 0) / (collectionValue || 1);
-    return {
-      rate: totalRate,
-      y10: collectionValue * Math.pow(1 + totalRate, 10),
-      y20: collectionValue * Math.pow(1 + totalRate, 20),
-      y30: collectionValue * Math.pow(1 + totalRate, 30),
-    };
-  }, [cards, collectionValue]);
-
-  const setValues = useMemo(() => {
-    const bySet = cards.reduce((acc, c) => {
-      if (!acc[c.set_id]) acc[c.set_id] = { set_name: c.set_name, cards: [] };
-      acc[c.set_id].cards.push(c);
-      return acc;
-    }, {});
-    return Object.entries(bySet).map(([setId, { set_name, cards: sc }]) => ({
-      setId, set_name, count: sc.length,
-      value: sc.reduce((s, c) => s + parseFloat(c.market_price_gbp || 0), 0),
-    })).sort((a, b) => b.value - a.value).slice(0, 5);
-  }, [cards]);
-
-  const earnedAchs   = ACHIEVEMENTS.filter(a => earnedIds.has(a.id));
   const tradeableCount = cards.filter(c => c.is_tradeable).length;
 
   return (
     <div className="page-container">
-
-      {/* Achievement toast — pops up when something new is unlocked */}
-      <AchievementToast achievement={newAchievement} onDone={() => setNewAchievement(null)} />
 
       {/* Hero greeting */}
       <div className="home-hero">
@@ -196,22 +121,20 @@ export default function Home() {
             <div className="stat-label">Trade offer{incoming.length !== 1 ? 's' : ''}</div>
           </Link>
         )}
-        {earnedAchs.length > 0 && (
-          <Link to="/achievements" className="stat-card" style={{borderColor:'rgba(245,166,35,.25)'}}>
-            <div className="stat-number">{earnedAchs.length}</div>
-            <div className="stat-label">Achievements</div>
-          </Link>
-        )}
+        <Link to="/badges" className="stat-card" style={{borderColor:'rgba(245,166,35,.25)'}}>
+          <div className="stat-number">🏆</div>
+          <div className="stat-label">Badges</div>
+        </Link>
       </div>
 
       {/* Quick actions */}
       <div className="quick-actions">
-        <Link to="/scan"         className="quick-action"><span className="qa-icon">📷</span><span>Scan</span></Link>
-        <Link to="/my-pokedex"   className="quick-action"><span className="qa-icon">📖</span><span>Pokédex</span></Link>
-        <Link to="/find"         className="quick-action"><span className="qa-icon">🔍</span><span>Find</span></Link>
-        <Link to="/wishlist"     className="quick-action"><span className="qa-icon">⭐</span><span>Wishlist</span></Link>
-        <Link to="/achievements" className="quick-action"><span className="qa-icon">🏆</span><span>Badges</span></Link>
-        <Link to="/analytics"    className="quick-action"><span className="qa-icon">📊</span><span>Analytics</span></Link>
+        <Link to="/scan"      className="quick-action"><span className="qa-icon">📷</span><span>Scan</span></Link>
+        <Link to="/my-pokedex" className="quick-action"><span className="qa-icon">📖</span><span>Pokédex</span></Link>
+        <Link to="/find"      className="quick-action"><span className="qa-icon">🔍</span><span>Find</span></Link>
+        <Link to="/wishlist"  className="quick-action"><span className="qa-icon">⭐</span><span>Wishlist</span></Link>
+        <Link to="/badges"    className="quick-action"><span className="qa-icon">🏆</span><span>Badges</span></Link>
+        <Link to="/analytics" className="quick-action"><span className="qa-icon">📊</span><span>Analytics</span></Link>
       </div>
 
       {/* Trade alert */}
@@ -220,37 +143,6 @@ export default function Home() {
           <div style={{fontSize:15,fontWeight:800,color:'var(--yellow)'}}>⚡ {incoming.length} pending trade offer{incoming.length !== 1 ? 's' : ''}</div>
           <div style={{fontSize:13,color:'var(--muted)',fontWeight:600,marginTop:2}}>Tap to review and respond</div>
         </Link>
-      )}
-
-      {/* Achievements preview — show recent badges */}
-      {earnedAchs.length > 0 && (
-        <div className="home-panel" style={{marginBottom:20}}>
-          <div className="home-panel-header">
-            <h2>🏆 Your badges</h2>
-            <Link to="/achievements" className="link-sm">View all {ACHIEVEMENTS.length} →</Link>
-          </div>
-          <div className="home-panel-body">
-            <div className="home-badges-row">
-              {earnedAchs.slice(0, 8).map(a => (
-                <div key={a.id} className="home-badge-chip" title={`${a.name} — ${a.desc}`}>
-                  <span className="home-badge-emoji">{a.emoji}</span>
-                  <span className="home-badge-name">{a.name}</span>
-                </div>
-              ))}
-              {earnedAchs.length > 8 && (
-                <Link to="/achievements" className="home-badge-more">+{earnedAchs.length - 8} more</Link>
-              )}
-            </div>
-            <div style={{marginTop:10}}>
-              <div className="progress-bar">
-                <div className="progress-fill" style={{width:`${Math.round((earnedAchs.length/ACHIEVEMENTS.length)*100)}%`}}/>
-              </div>
-              <div style={{fontSize:11,color:'var(--muted)',fontWeight:600,marginTop:4}}>
-                {earnedAchs.length} / {ACHIEVEMENTS.length} badges unlocked · {ACHIEVEMENTS.length - earnedAchs.length} still to go!
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Two-col panels */}
