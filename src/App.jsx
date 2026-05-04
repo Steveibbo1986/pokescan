@@ -15,6 +15,9 @@ import Trades from './pages/Trades';
 import Community from './pages/Community';
 import Account from './pages/Account';
 import Join from './pages/Join';
+import Badges from './pages/Badges';
+import Analytics from './pages/Analytics';
+import SetGoals from './pages/SetGoals';
 
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
@@ -33,22 +36,22 @@ function AppRoutes() {
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
   return (
     <Routes>
-      {/* Public */}
-      <Route path="/"              element={user ? <Navigate to="/home" replace /> : <Landing />} />
-      <Route path="/auth"          element={user ? <Navigate to="/home" replace /> : <Auth />} />
+      <Route path="/"               element={user ? <Navigate to="/home" replace /> : <Landing />} />
+      <Route path="/auth"           element={user ? <Navigate to="/home" replace /> : <Auth />} />
       <Route path="/join/:username" element={<Join />} />
-
-      {/* Protected */}
-      <Route path="/home"       element={<ProtectedLayout><Home /></ProtectedLayout>} />
-      <Route path="/scan"       element={<ProtectedLayout><Scan /></ProtectedLayout>} />
-      <Route path="/collection" element={<ProtectedLayout><Collection /></ProtectedLayout>} />
-      <Route path="/my-pokedex" element={<ProtectedLayout><MyPokedex /></ProtectedLayout>} />
-      <Route path="/find"       element={<ProtectedLayout><Find /></ProtectedLayout>} />
-      <Route path="/wishlist"   element={<ProtectedLayout><Wishlist /></ProtectedLayout>} />
-      <Route path="/trades"     element={<ProtectedLayout><Trades /></ProtectedLayout>} />
-      <Route path="/community"  element={<ProtectedLayout><Community /></ProtectedLayout>} />
-      <Route path="/account"    element={<ProtectedLayout><Account /></ProtectedLayout>} />
-      <Route path="*"           element={<Navigate to="/" replace />} />
+      <Route path="/home"           element={<ProtectedLayout><Home /></ProtectedLayout>} />
+      <Route path="/scan"           element={<ProtectedLayout><Scan /></ProtectedLayout>} />
+      <Route path="/collection"     element={<ProtectedLayout><Collection /></ProtectedLayout>} />
+      <Route path="/my-pokedex"     element={<ProtectedLayout><MyPokedex /></ProtectedLayout>} />
+      <Route path="/find"           element={<ProtectedLayout><Find /></ProtectedLayout>} />
+      <Route path="/wishlist"       element={<ProtectedLayout><Wishlist /></ProtectedLayout>} />
+      <Route path="/trades"         element={<ProtectedLayout><Trades /></ProtectedLayout>} />
+      <Route path="/community"      element={<ProtectedLayout><Community /></ProtectedLayout>} />
+      <Route path="/account"        element={<ProtectedLayout><Account /></ProtectedLayout>} />
+      <Route path="/badges"         element={<ProtectedLayout><Badges /></ProtectedLayout>} />
+      <Route path="/analytics"      element={<ProtectedLayout><Analytics /></ProtectedLayout>} />
+      <Route path="/set-goals"      element={<ProtectedLayout><SetGoals /></ProtectedLayout>} />
+      <Route path="*"               element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

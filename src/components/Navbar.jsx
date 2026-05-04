@@ -87,10 +87,12 @@ export default function Navbar() {
 
 function MobileMore({ pathname, toggle, theme }) {
   const moreItems = [
-    { to: '/collection', label: 'Collection', icon: '📚' },
-    { to: '/find',       label: 'Find',       icon: '🔍' },
-    { to: '/community',  label: 'Community',  icon: '👥' },
-    { to: '/account',    label: 'Account',    icon: '⚙️' },
+    { to: '/collection',   label: 'Collection',   icon: '📚' },
+    { to: '/find',         label: 'Find',         icon: '🔍' },
+    { to: '/community',    label: 'Community',    icon: '👥' },
+    { to: '/achievements', label: 'Achievements', icon: '🏆' },
+    { to: '/analytics',    label: 'Analytics',    icon: '📊' },
+    { to: '/account',      label: 'Account',      icon: '⚙️' },
   ];
   const moreActive = moreItems.some(i => i.to === pathname);
   return (

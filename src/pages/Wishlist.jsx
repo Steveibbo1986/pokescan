@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
 import { getWishlist, addToWishlist, removeFromWishlist } from '../lib/supabase';
 import { getSets, getCardsInSet, toGBP } from '../lib/tcgapi';
+import SetGoal from '../components/SetGoal';
 
 export default function Wishlist() {
   const { user } = useAuth();
@@ -103,7 +104,12 @@ export default function Wishlist() {
         <button className={tab === 'browse' ? 'tab active' : 'tab'} onClick={() => setTab('browse')}>
           Browse sets
         </button>
+        <button className={tab === 'goal' ? 'tab active' : 'tab'} onClick={() => setTab('goal')}>
+          🎯 Set goal
+        </button>
       </div>
+
+      {tab === 'goal' && <SetGoal />}
 
       {tab === 'wishlist' && (
         <>

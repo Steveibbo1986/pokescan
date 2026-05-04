@@ -40,7 +40,10 @@ export default function Collection() {
             </p>
           )}
         </div>
-        <a href="/scan" className="btn btn-primary">+ Scan more</a>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <button className="btn btn-secondary btn-sm" onClick={() => exportCSV(cards)}>⬇ Export CSV</button>
+          <a href="/scan" className="btn btn-primary">+ Scan more</a>
+        </div>
       </div>
 
       <PriceBackfill />
@@ -136,4 +139,22 @@ function CardDetailModal({ card, onClose }) {
       </div>
     </div>
   );
+}
+
+function exportCSV(cards) {
+  const header = ['Card Name','Set Name','Card Number','Rarity','Market Price (GBP)','Date Added'];
+  const rows = cards.map(c => [
+    `"${(c.card_name||'').replace(/"/g,'""')}"`,
+    `"${(c.set_name||'').replace(/"/g,'""')}"`,
+    c.card_number || '',
+    `"${(c.rarity||'').replace(/"/g,'""')}"`,
+    c.market_price_gbp ? parseFloat(c.market_price_gbp).toFixed(2) : '',
+    c.added_at ? new Date(c.added_at).toLocaleDateString('en-GB') : '',
+  ]);
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = `scanachu-collection-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click(); URL.revokeObjectURL(url);
 }

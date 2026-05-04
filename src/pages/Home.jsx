@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
 import { useTrades } from '../hooks/useTrades';
-import { getWishlist } from '../lib/supabase';
+import { getWishlist, getFriends } from '../lib/supabase';
+import { ACHIEVEMENTS, computeStats, getEarned } from '../lib/achievements';
+import AchievementToast from '../components/AchievementToast';
 
 // Pokémon card appreciation rates based on historical data
 // Vintage (pre-2000) ~15%/yr, Modern holos ~8%/yr, Commons ~3%/yr
@@ -29,10 +31,32 @@ export default function Home() {
   const { cards, bySet }  = useCollection();
   const { incoming }      = useTrades();
   const [wishlist, setWishlist] = useState([]);
+  const [friends, setFriends]   = useState([]);
+  const [newAchievement, setNewAchievement] = useState(null);
+  const [shownAchs, setShownAchs] = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem('scanachu-shown-achs') || '[]')); } catch { return new Set(); }
+  });
 
   useEffect(() => {
-    if (user) getWishlist(user.id).then(({ data }) => setWishlist(data || []));
+    if (user) {
+      getWishlist(user.id).then(({ data }) => setWishlist(data || []));
+      getFriends(user.id).then(({ data }) => setFriends(data || []));
+    }
   }, [user]);
+
+  // Check for newly unlocked achievements
+  const stats = useMemo(() => computeStats({ cards, trades: incoming, friends, wishlist }), [cards, incoming, friends, wishlist]);
+  const earnedIds = useMemo(() => new Set(getEarned(stats).map(a => a.id)), [stats]);
+
+  useEffect(() => {
+    const newOnes = ACHIEVEMENTS.filter(a => earnedIds.has(a.id) && !shownAchs.has(a.id));
+    if (newOnes.length > 0) {
+      setNewAchievement(newOnes[0]);
+      const updated = new Set([...shownAchs, ...newOnes.map(a => a.id)]);
+      setShownAchs(updated);
+      localStorage.setItem('scanachu-shown-achs', JSON.stringify([...updated]));
+    }
+  }, [earnedIds]);
 
   const collectionValue = useMemo(() =>
     cards.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
@@ -77,9 +101,340 @@ export default function Home() {
     })).sort((a, b) => b.value - a.value).slice(0, 5)
   , [bySet]);
 
+  const collectionValue = useMemo(() =>
+    cards.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
+  , [cards]);
+
+  const wishlistTotal = useMemo(() =>
+    wishlist.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
+  , [wishlist]);
+
+  const top5Cards = useMemo(() =>
+    [...cards]
+      .filter(c => c.market_price_gbp > 0)
+      .sort((a, b) => parseFloat(b.market_price_gbp) - parseFloat(a.market_price_gbp))
+      .slice(0, 5)
+  , [cards]);
+
+  const projections = useMemo(() => {
+    if (collectionValue === 0) return null;
+    const totalRate = cards.reduce((sum, c) => {
+      const val = parseFloat(c.market_price_gbp || 0);
+      if (!val) return sum;
+      const r = c.rarity?.toLowerCase() || '';
+      const rate = r.includes('illustration') || r.includes('special') ? 0.12
+        : r.includes('ultra') || r.includes('secret') ? 0.10
+        : r.includes('holo') ? 0.08
+        : r.includes('rare') ? 0.06
+        : 0.04;
+      return sum + (val * rate);
+    }, 0) / (collectionValue || 1);
+    return {
+      rate: totalRate,
+      y10: collectionValue * Math.pow(1 + totalRate, 10),
+      y20: collectionValue * Math.pow(1 + totalRate, 20),
+      y30: collectionValue * Math.pow(1 + totalRate, 30),
+    };
+  }, [cards, collectionValue]);
+
+  const setValues = useMemo(() => {
+    const bySet = cards.reduce((acc, c) => {
+      if (!acc[c.set_id]) acc[c.set_id] = { set_name: c.set_name, cards: [] };
+      acc[c.set_id].cards.push(c);
+      return acc;
+    }, {});
+    return Object.entries(bySet).map(([setId, { set_name, cards: sc }]) => ({
+      setId, set_name, count: sc.length,
+      value: sc.reduce((s, c) => s + parseFloat(c.market_price_gbp || 0), 0),
+    })).sort((a, b) => b.value - a.value).slice(0, 5);
+  }, [cards]);
+
+  const earnedAchs   = ACHIEVEMENTS.filter(a => earnedIds.has(a.id));
   const tradeableCount = cards.filter(c => c.is_tradeable).length;
 
   return (
+    <div className="page-container">
+
+      {/* Achievement toast — pops up when something new is unlocked */}
+      <AchievementToast achievement={newAchievement} onDone={() => setNewAchievement(null)} />
+
+      {/* Hero greeting */}
+      <div className="home-hero">
+        <h1>Hey, <span>{profile?.display_name || profile?.username}!</span> ⚡</h1>
+        <p>Welcome to Scanachu — your card collection tracker</p>
+      </div>
+
+      {/* Stats */}
+      <div className="stats-grid">
+        <Link to="/collection" className="stat-card">
+          <div className="stat-number">{cards.length}</div>
+          <div className="stat-label">Cards owned</div>
+        </Link>
+        {collectionValue > 0 && (
+          <Link to="/analytics" className="stat-card" style={{borderColor:'rgba(22,163,74,.25)'}}>
+            <div className="stat-number" style={{color:'var(--green)'}}>£{collectionValue.toFixed(0)}</div>
+            <div className="stat-label">Collection value</div>
+          </Link>
+        )}
+        <Link to="/my-pokedex" className="stat-card">
+          <div className="stat-number">{Object.keys(cards.reduce((a,c)=>(a[c.set_id]=1,a),{})).length}</div>
+          <div className="stat-label">Sets collected</div>
+        </Link>
+        <Link to="/wishlist" className="stat-card">
+          <div className="stat-number">{wishlist.length}</div>
+          <div className="stat-label">On wishlist</div>
+        </Link>
+        {wishlistTotal > 0 && (
+          <Link to="/wishlist" className="stat-card">
+            <div className="stat-number">£{wishlistTotal.toFixed(0)}</div>
+            <div className="stat-label">Wishlist value</div>
+          </Link>
+        )}
+        {incoming.length > 0 && (
+          <Link to="/trades" className="stat-card stat-card--alert">
+            <div className="stat-number">{incoming.length}</div>
+            <div className="stat-label">Trade offer{incoming.length !== 1 ? 's' : ''}</div>
+          </Link>
+        )}
+        {earnedAchs.length > 0 && (
+          <Link to="/achievements" className="stat-card" style={{borderColor:'rgba(245,166,35,.25)'}}>
+            <div className="stat-number">{earnedAchs.length}</div>
+            <div className="stat-label">Achievements</div>
+          </Link>
+        )}
+      </div>
+
+      {/* Quick actions */}
+      <div className="quick-actions">
+        <Link to="/scan"         className="quick-action"><span className="qa-icon">📷</span><span>Scan</span></Link>
+        <Link to="/my-pokedex"   className="quick-action"><span className="qa-icon">📖</span><span>Pokédex</span></Link>
+        <Link to="/find"         className="quick-action"><span className="qa-icon">🔍</span><span>Find</span></Link>
+        <Link to="/wishlist"     className="quick-action"><span className="qa-icon">⭐</span><span>Wishlist</span></Link>
+        <Link to="/achievements" className="quick-action"><span className="qa-icon">🏆</span><span>Badges</span></Link>
+        <Link to="/analytics"    className="quick-action"><span className="qa-icon">📊</span><span>Analytics</span></Link>
+      </div>
+
+      {/* Trade alert */}
+      {incoming.length > 0 && (
+        <Link to="/trades" style={{display:'block',background:'rgba(245,166,35,.08)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'var(--radius)',padding:'16px 20px',marginBottom:20}}>
+          <div style={{fontSize:15,fontWeight:800,color:'var(--yellow)'}}>⚡ {incoming.length} pending trade offer{incoming.length !== 1 ? 's' : ''}</div>
+          <div style={{fontSize:13,color:'var(--muted)',fontWeight:600,marginTop:2}}>Tap to review and respond</div>
+        </Link>
+      )}
+
+      {/* Achievements preview — show recent badges */}
+      {earnedAchs.length > 0 && (
+        <div className="home-panel" style={{marginBottom:20}}>
+          <div className="home-panel-header">
+            <h2>🏆 Your badges</h2>
+            <Link to="/achievements" className="link-sm">View all {ACHIEVEMENTS.length} →</Link>
+          </div>
+          <div className="home-panel-body">
+            <div className="home-badges-row">
+              {earnedAchs.slice(0, 8).map(a => (
+                <div key={a.id} className="home-badge-chip" title={`${a.name} — ${a.desc}`}>
+                  <span className="home-badge-emoji">{a.emoji}</span>
+                  <span className="home-badge-name">{a.name}</span>
+                </div>
+              ))}
+              {earnedAchs.length > 8 && (
+                <Link to="/achievements" className="home-badge-more">+{earnedAchs.length - 8} more</Link>
+              )}
+            </div>
+            <div style={{marginTop:10}}>
+              <div className="progress-bar">
+                <div className="progress-fill" style={{width:`${Math.round((earnedAchs.length/ACHIEVEMENTS.length)*100)}%`}}/>
+              </div>
+              <div style={{fontSize:11,color:'var(--muted)',fontWeight:600,marginTop:4}}>
+                {earnedAchs.length} / {ACHIEVEMENTS.length} badges unlocked · {ACHIEVEMENTS.length - earnedAchs.length} still to go!
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Two-col panels */}
+      <div className="home-grid">
+        {/* Top 5 valuable */}
+        <div className="home-panel">
+          <div className="home-panel-header">
+            <h2>💎 Most valuable</h2>
+            <Link to="/analytics" className="link-sm">Analytics</Link>
+          </div>
+          <div className="home-panel-body">
+            {top5Cards.length === 0 ? (
+              <div className="empty-state" style={{padding:'20px 0',fontSize:13}}>Scan cards to see their values</div>
+            ) : (
+              top5Cards.map((card, i) => (
+                <div key={card.id} className="wishlist-preview-row">
+                  <div className="top5-rank">#{i+1}</div>
+                  {card.image_url
+                    ? <img src={card.image_url} alt={card.card_name} className="wishlist-preview-img" />
+                    : <div className="wishlist-preview-img" style={{background:'var(--surface2)',borderRadius:3}}/>
+                  }
+                  <div className="wishlist-preview-info">
+                    <div className="wishlist-preview-name">{card.card_name}</div>
+                    <div className="wishlist-preview-set">{card.set_name}</div>
+                  </div>
+                  <span className="wishlist-preview-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</span>
+                </div>
+              ))
+            )}
+            {collectionValue > 0 && (
+              <div style={{paddingTop:10,borderTop:'1px solid var(--border)',marginTop:4,display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700}}>
+                <span style={{color:'var(--muted)'}}>Total value</span>
+                <strong style={{color:'var(--green)'}}>£{collectionValue.toFixed(2)}</strong>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Wishlist */}
+        <div className="home-panel">
+          <div className="home-panel-header">
+            <h2>⭐ Wishlist</h2>
+            <Link to="/wishlist" className="link-sm">View all</Link>
+          </div>
+          <div className="home-panel-body">
+            {!wishlist.length ? (
+              <div className="empty-state" style={{padding:'20px 0',fontSize:13}}>
+                No wishlist yet — <Link to="/find" className="link-sm">find some cards</Link>
+              </div>
+            ) : (
+              <>
+                {wishlist.slice(0,5).map(card => (
+                  <div key={card.id} className="wishlist-preview-row">
+                    {card.image_url ? <img src={card.image_url} alt={card.card_name} className="wishlist-preview-img"/> : <div className="wishlist-preview-img" style={{background:'var(--surface2)',borderRadius:3}}/>}
+                    <div className="wishlist-preview-info">
+                      <div className="wishlist-preview-name">{card.card_name}</div>
+                      <div className="wishlist-preview-set">{card.set_name}</div>
+                    </div>
+                    {card.market_price_gbp
+                      ? <span className="wishlist-preview-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</span>
+                      : <span className="wishlist-preview-price" style={{color:'var(--muted)'}}>—</span>
+                    }
+                  </div>
+                ))}
+                {wishlistTotal > 0 && (
+                  <div style={{paddingTop:10,borderTop:'1px solid var(--border)',marginTop:4,display:'flex',justifyContent:'space-between',fontSize:13,fontWeight:700}}>
+                    <span style={{color:'var(--muted)'}}>Wishlist total</span>
+                    <strong style={{color:'var(--yellow)'}}>£{wishlistTotal.toFixed(2)}</strong>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Set values */}
+      {setValues.some(s => s.value > 0) && (
+        <div className="home-panel" style={{marginBottom:20}}>
+          <div className="home-panel-header">
+            <h2>📦 Value by set</h2>
+            <Link to="/collection" className="link-sm">Collection</Link>
+          </div>
+          <div className="home-panel-body">
+            <div className="set-value-list">
+              {setValues.map(s => (
+                <div key={s.setId} className="set-value-row">
+                  <div>
+                    <div className="set-value-name">{s.set_name}</div>
+                    <div className="set-value-count">{s.count} card{s.count !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div className="set-value-amount">
+                    {s.value > 0 ? `£${s.value.toFixed(2)}` : <span style={{color:'var(--muted)',fontSize:12}}>No prices yet</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Value forecast */}
+      {projections && collectionValue > 5 && (
+        <div className="home-panel" style={{marginBottom:20}}>
+          <div className="home-panel-header">
+            <h2>📈 Future value forecast</h2>
+            <Link to="/analytics" className="link-sm">Full analytics</Link>
+          </div>
+          <div className="home-panel-body">
+            <div className="prediction-note">
+              ⚡ Based on historical card appreciation rates for your collection mix. Keep them in sleeves!
+            </div>
+            <div className="prediction-grid">
+              <div className="prediction-card">
+                <div className="prediction-year">Today</div>
+                <div className="prediction-value">£{collectionValue.toFixed(0)}</div>
+                <div className="prediction-label">Current value</div>
+              </div>
+              <div className="prediction-arrow">→</div>
+              <div className="prediction-card prediction-card--future">
+                <div className="prediction-year">10 years</div>
+                <div className="prediction-value">£{projections.y10.toFixed(0)}</div>
+                <div className="prediction-label prediction-gain">+£{(projections.y10 - collectionValue).toFixed(0)}</div>
+              </div>
+              <div className="prediction-arrow">→</div>
+              <div className="prediction-card prediction-card--future">
+                <div className="prediction-year">20 years</div>
+                <div className="prediction-value">£{projections.y20.toFixed(0)}</div>
+                <div className="prediction-label prediction-gain">+£{(projections.y20 - collectionValue).toFixed(0)}</div>
+              </div>
+              <div className="prediction-arrow">→</div>
+              <div className="prediction-card prediction-card--gold">
+                <div className="prediction-year">30 years</div>
+                <div className="prediction-value">£{projections.y30.toFixed(0)}</div>
+                <div className="prediction-label prediction-gain">+£{(projections.y30 - collectionValue).toFixed(0)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recently added */}
+      {cards.length > 0 && (
+        <div className="home-panel" style={{marginBottom:20}}>
+          <div className="home-panel-header">
+            <h2>🃏 Recently added</h2>
+            <Link to="/collection" className="link-sm">View all</Link>
+          </div>
+          <div className="home-panel-body">
+            <div className="recent-cards">
+              {cards.slice(0,10).map(card => (
+                <div key={card.id} className="recent-card-tile">
+                  {card.image_url
+                    ? <img src={card.image_url} alt={card.card_name}/>
+                    : <div style={{width:80,height:112,background:'var(--surface2)',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)'}}/>
+                  }
+                  <span>{card.card_name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pokédex teaser */}
+      <Link to="/my-pokedex" style={{display:'block',textDecoration:'none',marginBottom:20}}>
+        <div className="home-panel" style={{cursor:'pointer'}}>
+          <div className="home-panel-header">
+            <h2>📖 My Pokédex</h2>
+            <span className="link-sm">View all →</span>
+          </div>
+          <div className="home-panel-body">
+            <div style={{fontSize:13,color:'var(--muted)',fontWeight:600,marginBottom:8}}>All 1,025 creatures — see which ones you have and which are still missing.</div>
+            <div className="dex-completion-bar">
+              <div className="dex-completion-fill" style={{width:`${Math.min(100,(earnedIds.has('dex_10')?10:earnedIds.has('first_scan')?1:0)/1025*100)}%`}}/>
+            </div>
+            <div style={{fontSize:12,color:'var(--muted)',fontWeight:600,marginTop:4}}>Keep scanning to fill it up! ⚡</div>
+          </div>
+        </div>
+      </Link>
+
+    </div>
+  );
+}
     <div className="page-container">
 
       {/* Hero */}
