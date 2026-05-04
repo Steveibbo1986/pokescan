@@ -1295,3 +1295,98 @@ img { max-width: 100%; display: block; }
   .prediction-arrow { display: none; }
   .confirm-grid-v2 { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 }
+
+/* ─── Price backfill banner ──────────────────────────────────── */
+.price-backfill-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  background: rgba(255,215,0,.07); border: 1px solid rgba(255,215,0,.25);
+  border-radius: var(--radius); padding: 12px 16px; margin-bottom: 20px;
+}
+.price-backfill-info { display: flex; align-items: center; gap: 12px; }
+.price-backfill-icon { font-size: 24px; }
+.price-backfill-title { font-size: 14px; font-weight: 600; color: var(--text); }
+.price-backfill-desc  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.price-backfill-result { font-size: 13px; font-weight: 500; padding: 6px 12px; border-radius: var(--radius-sm); }
+.price-backfill-result--ok    { background: rgba(74,222,128,.15); color: var(--green); }
+.price-backfill-result--error { background: rgba(248,113,113,.15); color: var(--red); }
+
+/* ─── Mobile bottom navigation ───────────────────────────────── */
+.mobile-nav {
+  display: none; /* hidden on desktop */
+}
+
+@media (max-width: 768px) {
+  /* Show mobile nav, hide desktop nav links */
+  .navbar-links { display: none; }
+  .navbar-user .btn-ghost { display: none; } /* sign out in more menu */
+
+  /* Push page content above the bottom nav */
+  .main-content { padding-bottom: 80px; }
+
+  .mobile-nav {
+    display: flex;
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: var(--black); border-top: 1px solid var(--border);
+    padding: 6px 0 max(6px, env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 20px rgba(0,0,0,.4);
+  }
+
+  .mobile-nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center;
+    gap: 2px; padding: 4px 2px; text-decoration: none;
+    color: var(--muted); transition: color .15s; cursor: pointer;
+    position: relative;
+  }
+  .mobile-nav-item.active { color: var(--yellow); }
+  .mobile-nav-item:hover  { color: var(--text); }
+
+  .mobile-nav-icon {
+    font-size: 20px; line-height: 1; position: relative; display: block;
+  }
+  .mobile-nav-label {
+    font-size: 9px; font-weight: 500; text-transform: uppercase; letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .mobile-nav-badge {
+    position: absolute; top: -4px; right: -6px;
+    background: var(--yellow); color: var(--black);
+    font-size: 9px; font-weight: 800;
+    min-width: 14px; height: 14px; padding: 0 3px;
+    border-radius: 7px; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* More menu popup */
+  .mobile-nav-more { position: relative; }
+  .mobile-more-menu {
+    display: none;
+    position: absolute; bottom: calc(100% + 8px); right: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); box-shadow: 0 -8px 24px rgba(0,0,0,.4);
+    min-width: 160px; overflow: hidden; z-index: 300;
+  }
+  .mobile-nav-more:hover .mobile-more-menu,
+  .mobile-nav-more:focus-within .mobile-more-menu { display: block; }
+
+  .mobile-more-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 16px; font-size: 14px; color: var(--text);
+    text-decoration: none; transition: background .1s;
+  }
+  .mobile-more-item:hover   { background: var(--surface2); }
+  .mobile-more-item.active  { color: var(--yellow); font-weight: 600; }
+
+  .mobile-more-signout {
+    display: block; width: 100%; padding: 12px 16px;
+    font-size: 14px; color: var(--muted); text-align: left;
+    border-top: 1px solid var(--border); background: none;
+    cursor: pointer;
+  }
+  .mobile-more-signout:hover { color: var(--red); background: var(--surface2); }
+
+  /* Active indicator dot on mobile nav */
+  .mobile-nav-item.active::after {
+    content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--yellow);
+  }
+}

@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useCollection } from '../hooks/useCollection';
 import CardGrid from '../components/CardGrid';
 import CardTile from '../components/CardTile';
+import PriceBackfill from '../components/PriceBackfill';
 
 export default function Collection() {
   const { cards, bySet, loading } = useCollection();
@@ -23,6 +24,8 @@ export default function Collection() {
     return 0; // 'added' = default DB order
   });
 
+  const collectionValue = cards.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0);
+
   if (loading) return <div className="page-loading">Loading collection...</div>;
 
   return (
@@ -31,9 +34,16 @@ export default function Collection() {
         <div>
           <h1>My collection</h1>
           <p>{cards.length} card{cards.length !== 1 ? 's' : ''} across {Object.keys(bySet).length} set{Object.keys(bySet).length !== 1 ? 's' : ''}</p>
+          {collectionValue > 0 && (
+            <p style={{color:'var(--green)',fontWeight:700,fontSize:15,marginTop:4}}>
+              Collection value: £{collectionValue.toFixed(2)}
+            </p>
+          )}
         </div>
         <a href="/scan" className="btn btn-primary">+ Scan more</a>
       </div>
+
+      <PriceBackfill />
 
       <div className="toolbar">
         <input

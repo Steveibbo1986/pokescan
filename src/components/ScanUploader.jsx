@@ -156,7 +156,7 @@ function GridScanner({ onComplete, user, addCard, myCards, onBack }) {
     // Save all cards in parallel
     await Promise.allSettled(items.map(async r => {
       try {
-        await addCard({ card_id: r.tcgCard.id, card_name: r.tcgCard.name, set_id: r.tcgCard.set_id, set_name: r.tcgCard.set_name, set_series: r.tcgCard.set_series, card_number: r.tcgCard.card_number, rarity: r.tcgCard.rarity, image_url: r.tcgCard.image_small, scan_image_url: scanImageUrl });
+        await addCard({ card_id: r.tcgCard.id, card_name: r.tcgCard.name, set_id: r.tcgCard.set_id, set_name: r.tcgCard.set_name, set_series: r.tcgCard.set_series, card_number: r.tcgCard.card_number, rarity: r.tcgCard.rarity, image_url: r.tcgCard.image_small, scan_image_url: scanImageUrl, market_price_gbp: r.tcgCard.prices_gbp?.market || null });
         count++;
       } catch (err) { console.error(err); }
     }));
@@ -409,7 +409,7 @@ function IndividualScanner({ onComplete, user, addCard, myCards, onBack }) {
 
     await Promise.allSettled(withUrls.map(async r => {
       try {
-        await addCard({ card_id:r.tcgCard.id, card_name:r.tcgCard.name, set_id:r.tcgCard.set_id, set_name:r.tcgCard.set_name, set_series:r.tcgCard.set_series, card_number:r.tcgCard.card_number, rarity:r.tcgCard.rarity, image_url:r.tcgCard.image_small, scan_image_url:r.scanImageUrl });
+        await addCard({ card_id:r.tcgCard.id, card_name:r.tcgCard.name, set_id:r.tcgCard.set_id, set_name:r.tcgCard.set_name, set_series:r.tcgCard.set_series, card_number:r.tcgCard.card_number, rarity:r.tcgCard.rarity, image_url:r.tcgCard.image_small, scan_image_url:r.scanImageUrl, market_price_gbp:r.tcgCard.prices_gbp?.market||null });
         count++;
       } catch(err){ console.error(err); }
     }));
@@ -541,7 +541,7 @@ function NumberSearch({ onComplete, user, addCard, myCards, onBack }) {
       if (!window.confirm(`You already have ${existing.quantity||1} × ${card.name}. Add another copy?`)) return;
     }
     try {
-      await addCard({ card_id:card.id, card_name:card.name, set_id:card.set_id, set_name:card.set_name, set_series:card.set_series, card_number:card.card_number, rarity:card.rarity, image_url:card.image_small });
+      await addCard({ card_id:card.id, card_name:card.name, set_id:card.set_id, set_name:card.set_name, set_series:card.set_series, card_number:card.card_number, rarity:card.rarity, image_url:card.image_small, market_price_gbp:card.prices_gbp?.market||null });
       setFeedback(f=>({...f,[card.id]:'added'}));
     } catch(err){ console.error(err); }
   };
