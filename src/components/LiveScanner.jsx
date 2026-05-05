@@ -1,310 +1,393 @@
 // src/components/LiveScanner.jsx
-// Live camera scanner with card guide overlay and auto-capture
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { resolveCards } from '../lib/tcgapi';
+import { resolveCards, searchPokemonCards } from '../lib/tcgapi';
 import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
 import { supabase } from '../lib/supabase';
+
+// How many consecutive frames the card must fill the guide before we capture
+const HOLD_FRAMES   = 18;   // ~0.6s at 30fps — steady but not too slow
+const FILL_RATIO    = 0.72; // card must fill at least 72% of guide width
 
 export default function LiveScanner({ onComplete, onBack }) {
   const { user }    = useAuth();
   const { addCard } = useCollection();
 
-  const videoRef     = useRef(null);
-  const canvasRef    = useRef(null);
-  const streamRef    = useRef(null);
-  const rafRef       = useRef(null);
-  const cooldownRef  = useRef(false);
+  const videoRef      = useRef(null);
+  const canvasRef     = useRef(null);
+  const streamRef     = useRef(null);
+  const rafRef        = useRef(null);
+  const holdCountRef  = useRef(0);   // frames card has been fully in guide
+  const capturingRef  = useRef(false);
 
-  const [phase, setPhase]         = useState('starting'); // starting|scanning|captured|confirming|saving|done|error
-  const [cardDetected, setCardDetected] = useState(false);
+  const [phase, setPhase]               = useState('starting');
+  const [cardState, setCardState]       = useState('empty'); // empty | partial | full
+  const [holdPct, setHoldPct]           = useState(0);       // 0-100 fill progress
   const [capturedImg, setCapturedImg]   = useState(null);
-  const [results, setResults]           = useState([]);
+  const [identified, setIdentified]     = useState(null);    // raw from Claude
+  const [result, setResult]             = useState(null);    // resolved TCG card
   const [saving, setSaving]             = useState(false);
-  const [savedCount, setSavedCount]     = useState(0);
+  const [saved, setSaved]               = useState(false);
+  const [fixing, setFixing]             = useState(false);
   const [errorMsg, setErrorMsg]         = useState('');
-  const [fixing, setFixing]             = useState(null);
 
-  // Start camera
   useEffect(() => {
     startCamera();
-    return () => { stopCamera(); cancelAnimationFrame(rafRef.current); };
+    return () => { stopAll(); };
   }, []);
 
+  function stopAll() {
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach(t => t.stop());
+  }
+
   async function startCamera() {
+    setPhase('starting');
+    holdCountRef.current = 0;
+    capturingRef.current = false;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        video: {
+          facingMode: 'environment',
+          width:  { ideal: 1920 },
+          height: { ideal: 1080 },
+        }
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
-          setPhase('scanning');
-          startDetectionLoop();
-        };
-      }
-    } catch (err) {
+      const video = videoRef.current;
+      if (!video) return;
+      video.srcObject = stream;
+      video.onloadedmetadata = () => {
+        video.play();
+        setPhase('scanning');
+        startLoop();
+      };
+    } catch {
       setErrorMsg('Camera access denied. Please allow camera access and try again.');
       setPhase('error');
     }
   }
 
-  function stopCamera() {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-  }
-
-  // Detection loop — analyse brightness/edge in the guide zone to detect a card
-  const startDetectionLoop = useCallback(() => {
-    const analyse = () => {
-      if (!videoRef.current || !canvasRef.current) { rafRef.current = requestAnimationFrame(analyse); return; }
+  const startLoop = useCallback(() => {
+    const loop = () => {
+      rafRef.current = requestAnimationFrame(loop);
       const video  = videoRef.current;
       const canvas = canvasRef.current;
-      if (video.readyState < 2) { rafRef.current = requestAnimationFrame(analyse); return; }
+      if (!video || !canvas || video.readyState < 2 || capturingRef.current) return;
 
       const vw = video.videoWidth, vh = video.videoHeight;
+      if (!vw || !vh) return;
       canvas.width = vw; canvas.height = vh;
       const ctx = canvas.getContext('2d');
       ctx.drawImage(video, 0, 0, vw, vh);
 
-      // Sample the guide zone (centre 60% of frame, card-shaped)
-      const gx = Math.floor(vw * 0.2), gy = Math.floor(vh * 0.15);
-      const gw = Math.floor(vw * 0.6), gh = Math.floor(vh * 0.7);
-      const data = ctx.getImageData(gx, gy, gw, gh).data;
+      // Guide zone: a card-proportioned rectangle (2.5:3.5 aspect) centred in the frame
+      // We leave generous margin so the card must actually fill the guide
+      const guideW = Math.floor(vw * 0.62);
+      const guideH = Math.floor(guideW * (3.5 / 2.5));
+      const guideX = Math.floor((vw - guideW) / 2);
+      const guideY = Math.floor((vh - guideH) / 2);
 
-      // Simple card detection: measure brightness variance (a card has distinct edges vs blank background)
-      let sum = 0, sumSq = 0, n = data.length / 4;
-      for (let i = 0; i < data.length; i += 16) {
-        const lum = (data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114);
-        sum += lum; sumSq += lum * lum;
+      // ── Card detection ──────────────────────────────────────────
+      // Sample a thin strip near each of the 4 inner edges of the guide.
+      // A card filling the guide will have high contrast / non-uniform pixels
+      // at all 4 edges. Empty guide = mostly background = low variance.
+
+      const edgeW = Math.floor(guideW * 0.08);
+      const edgeH = Math.floor(guideH * 0.08);
+
+      const topData    = ctx.getImageData(guideX + edgeW, guideY + 4,             guideW - edgeW*2, edgeH).data;
+      const bottomData = ctx.getImageData(guideX + edgeW, guideY + guideH - edgeH - 4, guideW - edgeW*2, edgeH).data;
+      const leftData   = ctx.getImageData(guideX + 4,             guideY + edgeH, edgeW, guideH - edgeH*2).data;
+      const rightData  = ctx.getImageData(guideX + guideW - edgeW - 4, guideY + edgeH, edgeW, guideH - edgeH*2).data;
+
+      const varTop    = pixelVariance(topData);
+      const varBottom = pixelVariance(bottomData);
+      const varLeft   = pixelVariance(leftData);
+      const varRight  = pixelVariance(rightData);
+
+      // All 4 edges must have content (variance > threshold)
+      const EDGE_THRESH = 400;
+      const edgesFilled = [varTop, varBottom, varLeft, varRight].filter(v => v > EDGE_THRESH).length;
+
+      // Also check overall guide variance (card has rich content)
+      const centreData = ctx.getImageData(
+        guideX + Math.floor(guideW * 0.2),
+        guideY + Math.floor(guideH * 0.2),
+        Math.floor(guideW * 0.6),
+        Math.floor(guideH * 0.6)
+      ).data;
+      const centreVar = pixelVariance(centreData);
+
+      const cardFull    = edgesFilled >= 4 && centreVar > 600;
+      const cardPartial = edgesFilled >= 2 || centreVar > 300;
+
+      setCardState(cardFull ? 'full' : cardPartial ? 'partial' : 'empty');
+
+      if (cardFull) {
+        holdCountRef.current = Math.min(holdCountRef.current + 1, HOLD_FRAMES);
+      } else {
+        // Drop faster if card moves away completely
+        holdCountRef.current = Math.max(0, holdCountRef.current - (cardPartial ? 1 : 3));
       }
-      const mean = sum / (n / 4);
-      const variance = (sumSq / (n / 4)) - mean * mean;
 
-      // High variance = card with distinct art/text present (threshold tuned empirically)
-      const detected = variance > 800;
-      setCardDetected(detected);
+      setHoldPct(Math.round((holdCountRef.current / HOLD_FRAMES) * 100));
 
-      // Auto-capture after card is held steady for ~1.2s
-      if (detected && !cooldownRef.current) {
-        cooldownRef.current = true;
-        setTimeout(() => {
-          if (videoRef.current && canvasRef.current) {
-            captureFrame();
-          }
-        }, 1200);
+      if (holdCountRef.current >= HOLD_FRAMES && !capturingRef.current) {
+        capturingRef.current = true;
+        // Capture the FULL frame — don't crop yet, let Claude see the whole card
+        doCapture(canvas, vw, vh, guideX, guideY, guideW, guideH);
       }
-      if (!detected) cooldownRef.current = false;
-
-      rafRef.current = requestAnimationFrame(analyse);
     };
-    rafRef.current = requestAnimationFrame(analyse);
+    rafRef.current = requestAnimationFrame(loop);
   }, []);
 
-  const captureFrame = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current) return;
+  async function doCapture(canvas, vw, vh, guideX, guideY, guideW, guideH) {
     cancelAnimationFrame(rafRef.current);
-    stopCamera();
+    stopAll();
 
-    const video  = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx    = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // Crop to guide zone with a small 2% padding so we don't clip edge of card
+    const pad = Math.floor(Math.min(guideW, guideH) * 0.02);
+    const cx = Math.max(0, guideX - pad);
+    const cy = Math.max(0, guideY - pad);
+    const cw = Math.min(vw - cx, guideW + pad * 2);
+    const ch = Math.min(vh - cy, guideH + pad * 2);
 
-    // Crop to guide zone for tighter identification
-    const vw = canvas.width, vh = canvas.height;
-    const gx = Math.floor(vw * 0.18), gy = Math.floor(vh * 0.12);
-    const gw = Math.floor(vw * 0.64), gh = Math.floor(vh * 0.72);
-    const cropCanvas  = document.createElement('canvas');
-    cropCanvas.width  = gw; cropCanvas.height = gh;
-    cropCanvas.getContext('2d').drawImage(canvas, gx, gy, gw, gh, 0, 0, gw, gh);
+    const crop = document.createElement('canvas');
+    crop.width  = cw;
+    crop.height = ch;
+    crop.getContext('2d').drawImage(canvas, cx, cy, cw, ch, 0, 0, cw, ch);
 
-    const dataUrl = cropCanvas.toDataURL('image/jpeg', 0.9);
+    const dataUrl = crop.toDataURL('image/jpeg', 0.92);
     setCapturedImg(dataUrl);
     setPhase('identifying');
 
-    // Send to Claude
     try {
       const res = await fetch('/.netlify/functions/identify-cards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: [{ base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' }] }),
+        body: JSON.stringify({
+          image: { base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' }
+        }),
       });
-      const data    = await res.json();
-      const identified = data.results || [];
-      const resolved   = await resolveCards(identified);
-      const withMeta   = resolved.map(r => ({ ...r, include: r.resolved && !r.error }));
-      setResults(withMeta);
+      const data = await res.json();
+
+      // Handle both response shapes
+      const raw = data.result || data.results?.[0] || {};
+      setIdentified(raw);
+
+      if (raw.error === 'not_a_pokemon_card') {
+        setResult({ resolved: false, notCard: true });
+        setPhase('confirming');
+        return;
+      }
+
+      const [resolved] = await resolveCards([raw]);
+      setResult(resolved);
       setPhase('confirming');
     } catch (err) {
-      setErrorMsg('Could not identify card. Please try again.');
+      console.error(err);
+      setErrorMsg('Could not identify card. Check your connection and try again.');
       setPhase('error');
     }
-  }, []);
+  }
 
   const retake = () => {
-    setCardDetected(false);
     setCapturedImg(null);
-    setResults([]);
-    cooldownRef.current = false;
-    setPhase('starting');
+    setIdentified(null);
+    setResult(null);
+    setSaved(false);
+    setFixing(false);
+    holdCountRef.current = 0;
+    capturingRef.current = false;
+    setHoldPct(0);
+    setCardState('empty');
     startCamera();
   };
 
-  const applyFix = (idx, tcgCard) => {
-    setResults(r => r.map((x, i) => i === idx ? { ...x, resolved: true, tcgCard, include: true } : x));
-    setFixing(null);
+  const applyFix = (tcgCard) => {
+    setResult(r => ({ ...r, resolved: true, tcgCard }));
+    setFixing(false);
   };
 
-  const saveAll = async () => {
+  const saveCard = async () => {
+    if (!result?.tcgCard) return;
     setSaving(true);
-    let count = 0;
-    for (const r of results.filter(r => r.include && r.resolved && r.tcgCard)) {
-      try {
-        let scanImageUrl = null;
-        if (capturedImg) {
-          const blob = await fetch(capturedImg).then(r => r.blob());
-          const path = `${user.id}/live-${Date.now()}.jpg`;
-          const { data: up } = await supabase.storage.from('card-scans').upload(path, blob, { upsert: true });
-          if (up) { const { data: url } = supabase.storage.from('card-scans').getPublicUrl(path); scanImageUrl = url?.publicUrl; }
-        }
-        await addCard({
-          card_id: r.tcgCard.id, card_name: r.tcgCard.name,
-          set_id: r.tcgCard.set_id, set_name: r.tcgCard.set_name,
-          set_series: r.tcgCard.set_series, card_number: r.tcgCard.card_number,
-          rarity: r.tcgCard.rarity, image_url: r.tcgCard.image_small,
-          scan_image_url: scanImageUrl, market_price_gbp: r.tcgCard.prices_gbp?.market || null,
-        });
-        count++;
-      } catch (err) { console.error(err); }
-    }
-    setSavedCount(count);
+    try {
+      let scanImageUrl = null;
+      if (capturedImg) {
+        const blob = await fetch(capturedImg).then(r => r.blob());
+        const path = `${user.id}/live-${Date.now()}.jpg`;
+        const { data: up } = await supabase.storage.from('card-scans').upload(path, blob, { upsert: true });
+        if (up) { const { data: url } = supabase.storage.from('card-scans').getPublicUrl(path); scanImageUrl = url?.publicUrl; }
+      }
+      await addCard({
+        card_id: result.tcgCard.id, card_name: result.tcgCard.name,
+        set_id: result.tcgCard.set_id, set_name: result.tcgCard.set_name,
+        set_series: result.tcgCard.set_series, card_number: result.tcgCard.card_number,
+        rarity: result.tcgCard.rarity, image_url: result.tcgCard.image_small,
+        scan_image_url: scanImageUrl, market_price_gbp: result.tcgCard.prices_gbp?.market || null,
+      });
+      setSaved(true);
+    } catch (err) { console.error(err); }
     setSaving(false);
-    setPhase('done');
-    setTimeout(() => onComplete?.(), 2000);
   };
 
-  if (phase === 'done') {
-    return (
-      <div className="ls-done">
-        <div className="ls-done-icon">✓</div>
-        <h2>{savedCount} card{savedCount !== 1 ? 's' : ''} added!</h2>
+  // ── Render ──────────────────────────────────────────────────────
+  if (phase === 'error') return (
+    <div className="ls-error">
+      <div className="ls-error-icon">⚠️</div>
+      <p>{errorMsg}</p>
+      <div style={{display:'flex',gap:8}}>
+        <button className="btn btn-primary" onClick={retake}>Try again</button>
+        <button className="btn btn-ghost" onClick={onBack}>← Back</button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  if (phase === 'error') {
-    return (
-      <div className="ls-error">
-        <div className="ls-error-icon">⚠️</div>
-        <p>{errorMsg}</p>
-        <button className="btn btn-primary" onClick={onBack}>← Back</button>
-      </div>
-    );
-  }
+  if (fixing) return (
+    <div className="ls-confirm">
+      <button className="btn btn-ghost btn-sm" onClick={() => setFixing(false)} style={{marginBottom:12}}>← Back</button>
+      <h3 style={{marginBottom:8,color:'var(--yellow)'}}>Find the right card</h3>
+      {identified?.name && <p style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>Claude read: "<strong>{identified.name}</strong>"</p>}
+      <ManualFixer initialName={identified?.name || ''} onSelect={applyFix} onCancel={() => setFixing(false)} />
+    </div>
+  );
 
   return (
     <div className="ls-wrap">
 
-      {/* Camera view with overlay */}
+      {/* ── Camera view ── */}
       {(phase === 'scanning' || phase === 'starting') && (
         <div className="ls-camera-wrap">
           <video ref={videoRef} className="ls-video" playsInline muted autoPlay />
           <canvas ref={canvasRef} className="ls-canvas-hidden" />
 
-          {/* Darkened overlay with card-shaped cutout */}
+          {/* Dark vignette with transparent card-shaped guide */}
           <div className="ls-overlay">
             <div className="ls-overlay-top" />
             <div className="ls-overlay-mid">
               <div className="ls-overlay-side" />
-              <div className={`ls-guide ${cardDetected ? 'ls-guide--detected' : ''}`}>
-                {/* Corner marks */}
+
+              <div className={`ls-guide ls-guide--${cardState}`}>
                 <div className="ls-corner ls-corner--tl" />
                 <div className="ls-corner ls-corner--tr" />
                 <div className="ls-corner ls-corner--bl" />
                 <div className="ls-corner ls-corner--br" />
-                {cardDetected && (
+
+                {/* Hold progress arc */}
+                {cardState === 'full' && holdPct > 0 && (
+                  <div className="ls-hold-ring">
+                    <svg viewBox="0 0 48 48" className="ls-hold-svg">
+                      <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,.2)" strokeWidth="4"/>
+                      <circle cx="24" cy="24" r="20" fill="none" stroke="#F5A623" strokeWidth="4"
+                        strokeDasharray={`${holdPct * 1.257} 125.7`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 24 24)"
+                        style={{transition:'stroke-dasharray .08s linear'}}
+                      />
+                    </svg>
+                  </div>
+                )}
+
+                {cardState === 'full' && (
                   <div className="ls-scan-line" />
                 )}
               </div>
+
               <div className="ls-overlay-side" />
             </div>
             <div className="ls-overlay-bottom">
-              <div className={`ls-status ${cardDetected ? 'ls-status--detected' : ''}`}>
-                {cardDetected ? '⚡ Card detected — hold still...' : 'Align card within the guide'}
+              <div className={`ls-status ls-status--${cardState}`}>
+                {cardState === 'full'    ? holdPct < 50 ? '⚡ Hold still...' : holdPct < 90 ? '⚡ Almost there...' : '⚡ Capturing!'
+                 : cardState === 'partial' ? 'Move card to fill the guide'
+                 : 'Place card inside the guide'}
               </div>
             </div>
           </div>
 
-          {/* Controls */}
           <div className="ls-controls">
-            <button className="ls-back-btn" onClick={() => { stopCamera(); onBack?.(); }}>← Back</button>
-            <button className="ls-manual-btn" onClick={captureFrame}>Capture now</button>
+            <button className="ls-back-btn" onClick={() => { stopAll(); onBack?.(); }}>← Back</button>
+            <button className="ls-manual-btn" onClick={() => {
+              if (!capturingRef.current && videoRef.current && canvasRef.current) {
+                capturingRef.current = true;
+                const vw = videoRef.current.videoWidth, vh = videoRef.current.videoHeight;
+                const guideW = Math.floor(vw * 0.62);
+                const guideH = Math.floor(guideW * (3.5 / 2.5));
+                const guideX = Math.floor((vw - guideW) / 2);
+                const guideY = Math.floor((vh - guideH) / 2);
+                doCapture(canvasRef.current, vw, vh, guideX, guideY, guideW, guideH);
+              }
+            }}>Capture now</button>
           </div>
         </div>
       )}
 
-      {/* Identifying */}
+      {/* ── Identifying ── */}
       {phase === 'identifying' && (
         <div className="ls-identifying">
-          {capturedImg && <img src={capturedImg} alt="Captured" className="ls-captured-img" />}
+          {capturedImg && <img src={capturedImg} alt="Captured card" className="ls-captured-img" />}
           <div className="ls-identifying-label">
-            <span className="spin-icon">⚡</span> Identifying card...
+            <span style={{display:'inline-block',animation:'spin 1s linear infinite',marginRight:6}}>⚡</span>
+            Identifying card...
           </div>
         </div>
       )}
 
-      {/* Confirm result */}
-      {phase === 'confirming' && results.length > 0 && (
+      {/* ── Result ── */}
+      {phase === 'confirming' && (
         <div className="ls-confirm">
           <button className="btn btn-ghost btn-sm" onClick={retake} style={{marginBottom:12}}>← Scan again</button>
 
-          {fixing !== null ? (
-            <ManualFixer
-              initialName={results[fixing]?.tcgCard?.card_number || results[fixing]?.name || ''}
-              onSelect={card => applyFix(fixing, card)}
-              onCancel={() => setFixing(null)}
-            />
+          {result?.notCard ? (
+            <div className="ls-not-found">
+              <div style={{fontSize:32,marginBottom:8}}>🤔</div>
+              <p>Doesn't look like a Pokémon card. Try again with better lighting.</p>
+              <button className="btn btn-secondary btn-sm" onClick={retake} style={{marginTop:10}}>Retry</button>
+            </div>
+          ) : !result?.resolved ? (
+            <div className="ls-not-found">
+              <div style={{fontSize:32,marginBottom:8}}>❓</div>
+              <p>{identified?.name ? `Couldn't find "${identified.name}" in the database` : "Couldn't identify this card"}</p>
+              <div style={{display:'flex',gap:8,marginTop:10,flexWrap:'wrap'}}>
+                <button className="btn btn-primary btn-sm" onClick={() => setFixing(true)}>🔍 Search manually</button>
+                <button className="btn btn-secondary btn-sm" onClick={retake}>📷 Retake</button>
+              </div>
+            </div>
+          ) : saved ? (
+            <div className="ls-done" style={{padding:'20px 0'}}>
+              <div className="ls-done-icon">✓</div>
+              <h2>Added to collection!</h2>
+              <div style={{fontSize:14,fontWeight:700,marginTop:4,color:'var(--muted)'}}>{result.tcgCard.name} · {result.tcgCard.set_name}</div>
+              <div style={{display:'flex',gap:8,marginTop:16}}>
+                <button className="btn btn-primary" onClick={retake}>📷 Scan another</button>
+                <button className="btn btn-secondary btn-sm" onClick={onComplete}>Done</button>
+              </div>
+            </div>
           ) : (
             <>
-              <h3 className="ls-confirm-title">
-                {results[0]?.resolved ? '⚡ Card identified!' : '⚠ Could not identify'}
-              </h3>
-
-              {results[0]?.resolved && results[0]?.tcgCard ? (
-                <div className="ls-result-card">
-                  <img src={results[0].tcgCard.image_small} alt={results[0].tcgCard.name} className="ls-result-img" />
-                  <div className="ls-result-info">
-                    <div className="ls-result-name">{results[0].tcgCard.name}</div>
-                    <div className="ls-result-set">{results[0].tcgCard.set_name}</div>
-                    <div className="ls-result-num">#{results[0].tcgCard.card_number}</div>
-                    {results[0].tcgCard.rarity && <div className="ls-result-rarity">{results[0].tcgCard.rarity}</div>}
-                    {results[0].tcgCard.prices_gbp?.market && (
-                      <div className="ls-result-price">£{results[0].tcgCard.prices_gbp.market}</div>
-                    )}
-                  </div>
+              <h3 className="ls-confirm-title">⚡ Card identified!</h3>
+              <div className="ls-result-card">
+                {result.tcgCard.image_small && (
+                  <img src={result.tcgCard.image_small} alt={result.tcgCard.name} className="ls-result-img" />
+                )}
+                <div className="ls-result-info">
+                  <div className="ls-result-name">{result.tcgCard.name}</div>
+                  <div className="ls-result-set">{result.tcgCard.set_name}</div>
+                  <div className="ls-result-num">#{result.tcgCard.card_number}</div>
+                  {result.tcgCard.rarity && <div className="ls-result-rarity">{result.tcgCard.rarity}</div>}
+                  {result.tcgCard.prices_gbp?.market && (
+                    <div className="ls-result-price">£{result.tcgCard.prices_gbp.market}</div>
+                  )}
                 </div>
-              ) : (
-                <div className="ls-not-found">
-                  <p>"{results[0]?.name || 'Card'}" wasn't found in the database.</p>
-                </div>
-              )}
-
-              <div className="ls-confirm-actions">
-                <button className="btn btn-secondary btn-sm" onClick={() => setFixing(0)}>
-                  ✏ Wrong card? Fix it
-                </button>
-                <button className="btn btn-secondary btn-sm" onClick={retake}>
-                  📷 Scan again
-                </button>
               </div>
-
-              {results[0]?.resolved && (
-                <button className="btn btn-primary btn-full" onClick={saveAll} disabled={saving} style={{marginTop:12}}>
-                  {saving ? 'Saving...' : '+ Add to collection'}
-                </button>
-              )}
+              <div className="ls-confirm-actions">
+                <button className="btn btn-secondary btn-sm" onClick={() => setFixing(true)}>✏ Wrong card?</button>
+                <button className="btn btn-secondary btn-sm" onClick={retake}>📷 Scan again</button>
+              </div>
+              <button className="btn btn-primary btn-full" onClick={saveCard} disabled={saving} style={{marginTop:12}}>
+                {saving ? 'Saving...' : '+ Add to collection'}
+              </button>
             </>
           )}
         </div>
@@ -313,51 +396,72 @@ export default function LiveScanner({ onComplete, onBack }) {
   );
 }
 
+// ── Pixel variance helper ──────────────────────────────────────
+function pixelVariance(data) {
+  let sum = 0, sumSq = 0;
+  const step = 8; // sample every 8th pixel for speed
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4 * step) {
+    const lum = data[i] * 0.299 + data[i+1] * 0.587 + data[i+2] * 0.114;
+    sum += lum; sumSq += lum * lum; n++;
+  }
+  if (n === 0) return 0;
+  const mean = sum / n;
+  return (sumSq / n) - mean * mean;
+}
+
+// ── Manual fixer ───────────────────────────────────────────────
 function ManualFixer({ initialName, onSelect, onCancel }) {
-  const [q, setQ]         = useState(initialName);
-  const [results, setR]   = useState([]);
-  const [loading, setL]   = useState(false);
-  const { searchPokemonCards } = require('../lib/tcgapi');
+  const [q, setQ]       = useState(initialName);
+  const [results, setR] = useState([]);
+  const [loading, setL] = useState(false);
 
   const search = async () => {
     if (!q.trim()) return;
     setL(true);
     try {
-      const isNum = /\d+\/\d+/.test(q) || /^\d+$/.test(q.trim());
+      const isNum = /\d+[\/\\]\d+/.test(q) || /^\d{1,3}$/.test(q.trim());
       if (isNum) {
-        const num = q.split('/')[0].replace(/^0+/, '');
-        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`number:${num}`)}&pageSize=12&orderBy=-set.releaseDate`);
+        const num = q.split(/[\/\\]/)[0].replace(/^0+/, '');
+        const res = await fetch(`https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`number:${num}`)}&pageSize=20&orderBy=set.releaseDate`);
         const data = await res.json();
         const USD = 0.79;
         setR((data.data||[]).map(c => {
-          const p = c.tcgplayer?.prices; const tier = p?(p.holofoil||p.normal||p['1stEditionNormal']||p.reverseHolofoil):null;
-          const prices = tier?{market:tier.market}:null;
-          return { id:c.id, name:c.name, set_id:c.set?.id, set_name:c.set?.name, set_series:c.set?.series, card_number:c.number, rarity:c.rarity, image_small:c.images?.small, prices, prices_gbp:prices?{market:prices.market?(prices.market*USD).toFixed(2):null}:null };
+          const p = c.tcgplayer?.prices;
+          const tier = p ? (p.holofoil||p.normal||p['1stEditionNormal']||p.reverseHolofoil) : null;
+          const prices = tier ? { market: tier.market } : null;
+          return { id:c.id, name:c.name, set_id:c.set?.id, set_name:c.set?.name, set_series:c.set?.series,
+            card_number:c.number, rarity:c.rarity, image_small:c.images?.small, prices,
+            prices_gbp: prices?.market ? { market: (prices.market * USD).toFixed(2) } : null };
         }));
       } else {
-        const { searchPokemonCards } = await import('../lib/tcgapi');
         const data = await searchPokemonCards(q);
         setR(data.cards || []);
       }
-    } catch(e){ console.error(e); }
+    } catch(e) { console.error(e); }
     setL(false);
   };
 
   return (
     <div>
       <div style={{display:'flex',gap:8,marginBottom:12}}>
-        <input className="search-input" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Card number or name..." autoFocus />
-        <button className="btn btn-primary btn-sm" onClick={search} disabled={loading}>Go</button>
+        <input className="search-input" value={q} onChange={e=>setQ(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&search()} placeholder="Card number (e.g. 4/102) or name" autoFocus />
+        <button className="btn btn-primary btn-sm" onClick={search} disabled={loading}>Search</button>
         <button className="btn btn-ghost btn-sm" onClick={onCancel}>✕</button>
       </div>
-      <div className="card-grid-display card-grid-sm" style={{maxHeight:320,overflowY:'auto'}}>
-        {results.map(card=>(
-          <div key={card.id} className="card-tile" onClick={()=>onSelect(card)} style={{cursor:'pointer'}}>
-            <div className="card-tile-image">{card.image_small&&<img src={card.image_small} alt={card.name} loading="lazy"/>}</div>
+      {loading && <div style={{textAlign:'center',padding:16,color:'var(--muted)'}}>Searching...</div>}
+      <div className="card-grid-display card-grid-sm" style={{maxHeight:340,overflowY:'auto'}}>
+        {results.map(card => (
+          <div key={card.id} className="card-tile" onClick={() => onSelect(card)} style={{cursor:'pointer'}}>
+            <div className="card-tile-image">
+              {card.image_small && <img src={card.image_small} alt={card.name} loading="lazy" />}
+            </div>
             <div className="card-tile-info">
               <div className="card-tile-name">{card.name}</div>
-              <div className="card-tile-set">{card.set_name} #{card.card_number}</div>
-              {card.prices_gbp?.market&&<div style={{fontSize:11,color:'var(--green)',fontWeight:700}}>£{card.prices_gbp.market}</div>}
+              <div className="card-tile-set">{card.set_name}</div>
+              <div className="card-tile-number">#{card.card_number}</div>
+              {card.prices_gbp?.market && <div style={{fontSize:11,color:'var(--green)',fontWeight:700}}>£{card.prices_gbp.market}</div>}
             </div>
           </div>
         ))}
