@@ -64,10 +64,14 @@ export default function TrainerProfile({ compact = false }) {
   const { profile, user }  = useAuth();
   const { cards }          = useCollection();
   const { coins }          = useCoins();
-  const [favPokemon, setFavPokemon] = useState(
-    () => { try { return JSON.parse(localStorage.getItem('scanachu-fav-pokemon') || 'null'); } catch { return null; } }
-    || STARTER_CHOICES[1]
-  );
+  const [favPokemon, setFavPokemon] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('scanachu-fav-pokemon'));
+      return saved || STARTER_CHOICES[1];
+    } catch {
+      return STARTER_CHOICES[1];
+    }
+  });
   const [picking, setPicking]   = useState(false);
   const [search, setSearch]     = useState('');
   const [searchRes, setSearchRes] = useState([]);
