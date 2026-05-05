@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
+import TrainerProfile from '../components/TrainerProfile';
 
 export default function Account() {
   const { profile, user, refetchProfile } = useAuth();
@@ -97,6 +98,17 @@ export default function Account() {
       </div>
 
       <div className="account-sections">
+
+        {/* ─── Trainer card ─── */}
+        <div className="account-section">
+          <div className="account-section-header">
+            <h2>🎮 Your trainer card</h2>
+            <p>Pick your partner Pokémon and customise your card colour</p>
+          </div>
+          <div style={{padding:'16px 20px'}}>
+            <TrainerProfile />
+          </div>
+        </div>
 
         {/* ─── Profile info ─── */}
         <div className="account-section">

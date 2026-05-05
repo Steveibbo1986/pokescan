@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTrades } from '../hooks/useTrades';
 import { signOut } from '../lib/supabase';
 import { useTheme } from '../hooks/useTheme';
+import { useCoins } from '../hooks/useCoins';
 
 const NAV = [
   { to: '/home',       label: 'Home',       icon: '🏠' },
@@ -25,10 +26,11 @@ const MOBILE_NAV = [
 ];
 
 export default function Navbar() {
-  const { profile }       = useAuth();
+  const { profile, user }       = useAuth();
   const { incoming = [] } = useTrades();
   const { pathname }      = useLocation();
   const { theme, toggle } = useTheme();
+  const { coins }         = useCoins();
 
   return (
     <>
@@ -52,6 +54,11 @@ export default function Navbar() {
         </div>
 
         <div className="navbar-user">
+          {/* Coin balance */}
+          <Link to="/shop" className="nav-coins" title="Scana-bucks — visit shop">
+            <span className="nav-coins-icon">⚡</span>
+            <span className="nav-coins-amount">{coins.toLocaleString()}</span>
+          </Link>
           {/* Theme toggle */}
           <button className="theme-toggle" onClick={toggle} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
             {theme === 'light' ? '🌙' : '☀️'}

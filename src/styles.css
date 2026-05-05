@@ -2116,3 +2116,246 @@ img { max-width: 100%; display: block; }
 .vwc-value--high { color: var(--red); }
 .vwc-arrow { font-size: 20px; color: var(--muted); }
 .value-warning-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Trainer profile card ─────────────────────────────────────── */
+.trainer-profile-wrap { max-width: 480px; }
+
+.trainer-card {
+  background: var(--surface); border: 2px solid var(--tc,var(--yellow));
+  border-radius: 20px; overflow: hidden;
+  box-shadow: 0 4px 24px color-mix(in srgb, var(--tc,var(--yellow)) 20%, transparent);
+}
+.tc-header { position: relative; overflow: hidden; }
+.tc-header-bg { position:absolute;inset:0; opacity:.15; }
+.tc-header-content { position: relative; padding: 14px 16px 12px; }
+.tc-title-row { display:flex;justify-content:space-between;align-items:center;margin-bottom:4px; }
+.tc-label { font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted); }
+.tc-pro-badge { font-size:10px;font-weight:800;color:var(--tc,var(--yellow));background:color-mix(in srgb,var(--tc,var(--yellow)) 15%,transparent);padding:2px 8px;border-radius:8px;border:1px solid color-mix(in srgb,var(--tc,var(--yellow)) 35%,transparent); }
+.tc-name { font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;line-height:1; }
+.tc-trainer-title { font-size:12px;font-weight:700;color:var(--tc,var(--yellow));text-transform:uppercase;letter-spacing:.06em;margin-top:3px; }
+
+.tc-body { display:flex;gap:0;border-top:1px solid var(--border); }
+.tc-left { flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px; }
+.tc-avatar { width:60px;height:60px;border-radius:50%;overflow:hidden;border:2px solid var(--tc,var(--yellow));background:var(--surface2);flex-shrink:0; }
+.tc-avatar-img { width:100%;height:100%;object-fit:cover; }
+.tc-avatar-initials { width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900; }
+.tc-stats { display:flex;gap:12px; }
+.tc-stat { text-align:center; }
+.tc-stat-n { display:block;font-size:18px;font-weight:900;line-height:1; }
+.tc-stat-l { display:block;font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-top:2px; }
+
+.tc-right { width:120px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:8px;border-left:1px solid var(--border); }
+.tc-pokemon-wrap { text-align:center; }
+.tc-pokemon-sprite { width:88px;height:88px;object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 4px 8px var(--shadow,rgba(245,166,35,.3))); }
+.tc-pokemon-name { font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em; }
+
+.tc-footer { padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2); }
+.tc-badges-row { display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px; }
+.tc-badge-chip { width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;background:color-mix(in srgb,var(--c,var(--yellow)) 15%,transparent);border:1px solid color-mix(in srgb,var(--c,var(--yellow)) 30%,transparent); }
+.tc-no-badges { font-size:11px;color:var(--muted);font-weight:600; }
+.tc-bio { font-size:12px;color:var(--muted);font-style:italic;margin-top:4px; }
+
+.tc-controls { margin-top:14px; }
+.tc-controls-row { display:flex;gap:12px;align-items:center;flex-wrap:wrap; }
+.tc-color-row { display:flex;gap:6px; }
+.tc-color-btn { width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:transform .15s; }
+.tc-color-btn:hover { transform:scale(1.2); }
+.tc-color-btn--active { border-color:var(--text);transform:scale(1.15); }
+
+.tc-picker { margin-top:16px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);padding:16px; }
+.tc-picker-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px; }
+.tc-pick-btn { display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:var(--radius-sm);border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;transition:all .15s; }
+.tc-pick-btn:hover { border-color:var(--yellow);background:rgba(245,166,35,.06); }
+.tc-pick-btn--active { border-color:var(--yellow);background:rgba(245,166,35,.1); }
+.tc-pick-sprite { width:56px;height:56px;object-fit:contain;image-rendering:pixelated; }
+.tc-pick-name { font-size:10px;font-weight:700;text-align:center;color:var(--text); }
+
+/* ── Card detail modal ────────────────────────────────────────── */
+.cd-modal { max-width:640px;max-height:92vh;overflow-y:auto; }
+.cd-top { display:flex;gap:16px;padding:16px;align-items:flex-start; }
+.cd-img-wrap { width:140px;flex-shrink:0; }
+.cd-img { width:100%;border-radius:10px;box-shadow:var(--shadow); }
+.cd-basics { flex:1;position:relative; }
+.cd-close { position:absolute;top:0;right:0;font-size:18px;color:var(--muted);padding:2px 6px;border-radius:6px;cursor:pointer;background:var(--surface2); }
+.cd-name { font-size:20px;font-weight:900;margin-bottom:3px;margin-right:28px; }
+.cd-set  { font-size:13px;color:var(--muted);font-weight:600;margin-bottom:2px; }
+.cd-num  { font-size:12px;color:var(--muted);font-weight:600;margin-bottom:8px; }
+.cd-types { display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px; }
+.cd-type-chip { font-size:11px;font-weight:800;color:#fff;padding:3px 9px;border-radius:100px;text-shadow:0 1px 2px rgba(0,0,0,.3); }
+.cd-rarity { font-size:12px;color:var(--yellow);font-weight:700;margin-bottom:10px; }
+.cd-price-block { margin-bottom:12px; }
+.cd-price-main { font-size:24px;font-weight:900;color:var(--green);line-height:1; }
+.cd-price-range { font-size:12px;color:var(--muted);font-weight:600;margin-top:2px; }
+.cd-price-label { font-size:11px;color:var(--muted);font-weight:600;margin-top:1px; }
+.cd-actions { display:flex;gap:8px;flex-wrap:wrap; }
+.cd-pro-lock { font-size:10px;font-weight:800;color:var(--yellow);background:rgba(245,166,35,.15);padding:1px 6px;border-radius:6px;margin-left:4px; }
+.cd-tab-body { padding:16px; }
+.cd-info-grid { display:flex;flex-direction:column;gap:0; }
+.cd-info-row { display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px; }
+.cd-info-row:last-child { border-bottom:none; }
+.cd-info-label { color:var(--muted);font-weight:600; }
+.cd-info-value { font-weight:700;text-align:right; }
+.cd-attack { background:var(--surface2);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px; }
+.cd-flavour { font-size:13px;color:var(--muted);font-style:italic;padding:12px;border-left:2px solid var(--border-yellow);margin-top:12px;line-height:1.6; }
+
+.cd-pro-wall { padding:32px 24px;text-align:center; }
+.cd-pro-wall-icon { font-size:40px;margin-bottom:12px;display:block; }
+.cd-pro-wall h3 { font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:1px;color:var(--yellow);margin-bottom:10px; }
+.cd-pro-wall p { font-size:14px;color:var(--muted);font-weight:600;line-height:1.7;margin-bottom:18px; }
+.cd-pro-feature-list { display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:20px; }
+.cd-pro-feature-list span { font-size:12px;font-weight:700;background:var(--surface2);border:1px solid var(--border);padding:5px 12px;border-radius:100px; }
+.cd-pro-price { font-size:28px;font-weight:900;color:var(--text);margin-bottom:14px; }
+.cd-pro-price span { font-size:14px;color:var(--muted);font-weight:600; }
+
+.cd-price-stats { display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm); }
+.cd-price-stat { text-align:center;flex:1; }
+.cd-ps-val { font-size:16px;font-weight:900; }
+.cd-ps-label { font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:2px; }
+.cd-chart-wrap { margin-bottom:8px; }
+.cd-chart-svg { width:100%;height:80px;display:block; }
+.cd-chart-labels { display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:600; }
+.cd-live-badge { display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--green);background:rgba(22,163,74,.1);padding:3px 10px;border-radius:100px;border:1px solid rgba(22,163,74,.2);margin-top:4px; }
+.cd-grade-row { display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border); }
+.cd-grade-row:last-child { border-bottom:none; }
+.cd-grade-badge { font-size:11px;font-weight:900;color:#fff;padding:4px 10px;border-radius:8px; }
+
+/* ── Type browser ─────────────────────────────────────────────── */
+.type-browser-chips { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px; }
+.type-chip {
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:800;padding:8px 16px;border-radius:100px;cursor:pointer;
+  background:color-mix(in srgb,var(--tc) 12%,var(--surface));
+  border:1.5px solid color-mix(in srgb,var(--tc) 30%,transparent);
+  color:color-mix(in srgb,var(--tc) 80%,var(--text));
+  transition:all .15s;
+}
+.type-chip:hover { background:color-mix(in srgb,var(--tc) 22%,var(--surface)); transform:translateY(-2px); }
+.type-chip--active { background:var(--tc);color:#fff;border-color:var(--tc);box-shadow:0 4px 16px color-mix(in srgb,var(--tc) 35%,transparent); }
+
+/* ─── Action sheet — owned cards preview scroll ──────────────── */
+.asb-owned-scroll {
+  display: flex; gap: 10px; overflow-x: auto; padding: 12px 16px;
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  background: var(--surface2); margin-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+.asb-owned-card { flex-shrink: 0; width: 72px; text-align: center; }
+.asb-owned-img  { width: 72px; height: 100px; object-fit: cover; border-radius: 8px; border: 1.5px solid var(--border); margin-bottom: 4px; }
+.asb-owned-placeholder { width: 72px; height: 100px; background: var(--surface); border-radius: 8px; border: 1.5px dashed var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 4px; }
+.asb-owned-set    { font-size: 10px; color: var(--muted); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.asb-owned-num    { font-size: 10px; color: var(--muted); font-weight: 600; }
+.asb-owned-rarity { font-size: 10px; color: var(--yellow); font-weight: 700; }
+.asb-owned-price  { font-size: 11px; color: var(--green); font-weight: 800; }
+
+/* ── Coin toast ───────────────────────────────────────────────── */
+.coin-toast {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  background: var(--black); color: var(--yellow);
+  font-size: 15px; font-weight: 800; padding: 10px 22px; border-radius: 100px;
+  z-index: 9999; white-space: nowrap; pointer-events: none;
+  border: 1.5px solid rgba(245,166,35,.4);
+  transition: opacity .3s, transform .3s;
+}
+.coin-toast--visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+.coin-toast--hidden  { opacity: 0; transform: translateX(-50%) translateY(8px); }
+.coin-toast-bolt  { margin-right: 6px; }
+.coin-toast-label { }
+
+/* ── Navbar coins ─────────────────────────────────────────────── */
+.nav-coins {
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(245,166,35,.12); border: 1px solid rgba(245,166,35,.3);
+  border-radius: 100px; padding: 5px 11px; text-decoration: none;
+  transition: background .15s;
+}
+.nav-coins:hover { background: rgba(245,166,35,.22); }
+.nav-coins-icon   { font-size: 13px; }
+.nav-coins-amount { font-size: 13px; font-weight: 800; color: var(--yellow); }
+
+/* ── Trainer card — coins + rainbow border ────────────────────── */
+.tc-coins { font-size: 12px; font-weight: 800; color: var(--yellow); background: rgba(245,166,35,.12); padding: 2px 8px; border-radius: 10px; }
+.trainer-card--rainbow {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  animation: rainbowBorder 3s linear infinite;
+}
+@keyframes rainbowBorder {
+  0%   { border-color: #F5A623; }
+  17%  { border-color: #E8563A; }
+  34%  { border-color: #9B59B6; }
+  51%  { border-color: #3B9DD2; }
+  68%  { border-color: #5BAD3A; }
+  85%  { border-color: #FFD700; }
+  100% { border-color: #F5A623; }
+}
+
+/* ── Shop page ────────────────────────────────────────────────── */
+.shop-coin-balance {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(245,166,35,.1); border: 1.5px solid rgba(245,166,35,.3);
+  border-radius: 14px; padding: 10px 16px;
+}
+.shop-coin-icon   { font-size: 20px; }
+.shop-coin-amount { font-size: 22px; font-weight: 900; color: var(--yellow); }
+.shop-coin-label  { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+
+.shop-coming-soon {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: rgba(37,99,235,.06); border: 1.5px solid rgba(37,99,235,.2);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 14px;
+}
+.shop-cs-icon  { font-size: 22px; flex-shrink: 0; }
+.shop-cs-title { font-size: 14px; font-weight: 800; margin-bottom: 3px; }
+.shop-cs-sub   { font-size: 12px; color: var(--muted); font-weight: 600; line-height: 1.6; }
+
+.shop-earn-banner {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 20px;
+}
+.shop-earn-title { font-size: 13px; font-weight: 800; margin-bottom: 10px; }
+.shop-earn-list  { display: flex; flex-direction: column; gap: 0; }
+.shop-earn-row   { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.shop-earn-row:last-child { border-bottom: none; }
+.shop-earn-val   { font-size: 12px; font-weight: 800; color: var(--yellow); }
+
+.shop-msg { font-size: 14px; font-weight: 700; padding: 10px 16px; border-radius: var(--radius-sm); background: rgba(22,163,74,.1); color: var(--green); margin-bottom: 14px; border: 1px solid rgba(22,163,74,.25); }
+
+.shop-cats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.shop-cat-btn {
+  font-size: 13px; font-weight: 700; padding: 7px 16px; border-radius: 100px;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; transition: all .15s;
+}
+.shop-cat-btn:hover { border-color: var(--yellow); color: var(--yellow); }
+.shop-cat-btn--active { background: var(--yellow); color: var(--black); border-color: var(--yellow); }
+
+.shop-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.shop-item-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 16px; overflow: hidden; cursor: pointer; transition: all .15s;
+}
+.shop-item-card:hover { border-color: var(--yellow); transform: translateY(-2px); box-shadow: var(--glow); }
+.shop-item-card--equipped { border-color: var(--yellow); background: rgba(245,166,35,.04); box-shadow: var(--glow); }
+.shop-item-card--locked { opacity: .55; }
+.shop-item-preview {
+  aspect-ratio: 1; background: var(--surface2); display: flex;
+  align-items: center; justify-content: center; position: relative;
+}
+.shop-preview-inner { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+.shop-item-equipped-badge {
+  position: absolute; top: 6px; right: 6px;
+  background: var(--yellow); color: var(--black);
+  font-size: 9px; font-weight: 900; padding: 2px 6px; border-radius: 8px;
+}
+.shop-item-lock {
+  position: absolute; top: 6px; left: 6px; font-size: 16px;
+}
+.shop-item-info { padding: 8px 10px 10px; }
+.shop-item-name { font-size: 13px; font-weight: 800; margin-bottom: 2px; }
+.shop-item-desc { font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 6px; line-height: 1.4; }
+.shop-item-footer { }
+.shop-item-status          { font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 8px; display: inline-block; }
+.shop-item-status--free     { background: rgba(22,163,74,.1);   color: var(--green); border: 1px solid rgba(22,163,74,.25); }
+.shop-item-status--owned    { background: var(--surface2);      color: var(--muted); border: 1px solid var(--border); }
+.shop-item-status--equipped { background: rgba(245,166,35,.15); color: var(--yellow-dark); border: 1px solid rgba(245,166,35,.3); }
+.shop-item-price            { font-size: 13px; font-weight: 800; color: var(--yellow); }
+.shop-item-price--locked    { color: var(--muted); }

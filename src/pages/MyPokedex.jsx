@@ -248,7 +248,7 @@ export default function MyPokedex() {
 
   const [selectedGen, setSelectedGen] = useState('all');
   const [filter, setFilter]           = useState('all');
-  const [expandedDex, setExpandedDex] = useState(null);
+
   const [search, setSearch]           = useState('');
   const [actionSheet, setActionSheet] = useState(null); // { pokemon, displayName, owned }
 
@@ -319,12 +319,7 @@ export default function MyPokedex() {
   };
 
   const handleOwnedExpand = (pokemon, owned, displayName) => {
-    // Toggle expand on first tap, show action sheet only if already expanded
-    if (expandedDex === pokemon.number) {
-      // already expanded - do nothing on tile click, actions are in the panel
-    } else {
-      setExpandedDex(pokemon.number);
-    }
+    setActionSheet({ pokemon, displayName, owned });
   };
 
   return (
@@ -384,7 +379,7 @@ export default function MyPokedex() {
       <div className="living-dex-grid">
         {visiblePokemon.map(pokemon => {
           const owned = dexMap[pokemon.number];
-          const isExpanded = expandedDex === pokemon.number;
+
           const pokeName = Object.entries(COMMON_NAME_MAP).find(([, v]) => v === pokemon.number)?.[0] || '';
           const displayName = pokeName ? pokeName.charAt(0).toUpperCase() + pokeName.slice(1) : `#${pokemon.number}`;
 
@@ -402,7 +397,7 @@ export default function MyPokedex() {
 
             return (
               <div key={pokemon.number} className="dex-tile dex-tile--owned">
-                <div className="dex-tile-inner" onClick={() => setExpandedDex(isExpanded ? null : pokemon.number)}>
+                <div className="dex-tile-inner" onClick={() => handleOwnedExpand(pokemon, owned, displayName)}>
                   <div className="dex-tile-img">
                     {coverCard.image_url
                       ? <img src={coverCard.image_url} alt={displayName} loading="lazy" />
@@ -416,42 +411,6 @@ export default function MyPokedex() {
                     <span className="dex-name">{displayName}</span>
                   </div>
                 </div>
-
-                {isExpanded && (
-                  <div className="dex-expanded">
-                    <div className="dex-expanded-header">
-                      {owned.length} card{owned.length !== 1 ? 's' : ''} for {displayName}
-                    </div>
-                    <div className="dex-expanded-cards">
-                      {owned.map(card => (
-                        <div key={card.id} className="dex-mini-card">
-                          <img src={card.image_url || pokemon.sprite} alt={card.card_name} loading="lazy" />
-                          <div className="dex-mini-info">
-                            <div className="dex-mini-set">{card.set_name}</div>
-                            <div className="dex-mini-num">#{card.card_number}</div>
-                            {card.rarity && <div className="dex-mini-rarity">{card.rarity}</div>}
-                            {card.market_price_gbp && <div className="dex-mini-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</div>}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {/* Quick action buttons */}
-                    <div className="dex-expanded-actions">
-                      <button className="dex-action-btn" onClick={() => { setExpandedDex(null); navigate('/scan'); }}>
-                        <span className="dex-action-icon">📷</span>
-                        <span>Scan another</span>
-                      </button>
-                      <button className="dex-action-btn" onClick={() => { setExpandedDex(null); navigate(`/find?q=${encodeURIComponent(displayName)}`); }}>
-                        <span className="dex-action-icon">🔍</span>
-                        <span>Search cards</span>
-                      </button>
-                      <button className="dex-action-btn" onClick={() => { setExpandedDex(null); setActionSheet({ pokemon, displayName, owned }); }}>
-                        <span className="dex-action-icon">🔢</span>
-                        <span>By number</span>
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             );
           } else {
@@ -504,11 +463,7 @@ function PokemonActionSheet({ pokemon, displayName, owned, onClose, onNavigate }
         <div className="action-sheet-handle" />
 
         <div className="action-sheet-header">
-          <img
-            src={pokemon.sprite}
-            alt={displayName}
-            className="action-sheet-sprite"
-          />
+          <img src={pokemon.sprite} alt={displayName} className="action-sheet-sprite" />
           <div>
             <div className="action-sheet-title">{displayName}</div>
             <div className="action-sheet-sub">
@@ -521,15 +476,32 @@ function PokemonActionSheet({ pokemon, displayName, owned, onClose, onNavigate }
           </div>
         </div>
 
+        {/* Show owned cards horizontally if present */}
+        {owned && owned.length > 0 && (
+          <div className="asb-owned-scroll">
+            {owned.map(card => (
+              <div key={card.id} className="asb-owned-card">
+                {card.image_url
+                  ? <img src={card.image_url} alt={card.card_name} className="asb-owned-img" />
+                  : <div className="asb-owned-placeholder">🎴</div>
+                }
+                <div className="asb-owned-set">{card.set_name}</div>
+                <div className="asb-owned-num">#{card.card_number}</div>
+                {card.rarity && <div className="asb-owned-rarity">{card.rarity}</div>}
+                {card.market_price_gbp && (
+                  <div className="asb-owned-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         <div className="action-sheet-label">
           {owned ? 'Add more cards for this Pokémon' : 'Find a card for this Pokémon'}
         </div>
 
         <div className="action-sheet-options">
-          <button
-            className="action-sheet-btn"
-            onClick={() => onNavigate('/scan')}
-          >
+          <button className="action-sheet-btn" onClick={() => onNavigate('/scan')}>
             <span className="asb-icon">📷</span>
             <div className="asb-text">
               <div className="asb-title">Scan a card</div>
@@ -538,10 +510,7 @@ function PokemonActionSheet({ pokemon, displayName, owned, onClose, onNavigate }
             <span className="asb-arrow">›</span>
           </button>
 
-          <button
-            className="action-sheet-btn"
-            onClick={() => onNavigate(`/find?q=${encodeURIComponent(displayName)}`)}
-          >
+          <button className="action-sheet-btn" onClick={() => onNavigate(`/find?q=${encodeURIComponent(displayName)}`)}>
             <span className="asb-icon">🔍</span>
             <div className="asb-text">
               <div className="asb-title">Search for {displayName}</div>
@@ -550,10 +519,7 @@ function PokemonActionSheet({ pokemon, displayName, owned, onClose, onNavigate }
             <span className="asb-arrow">›</span>
           </button>
 
-          <button
-            className="action-sheet-btn"
-            onClick={() => onNavigate('/scan?mode=number')}
-          >
+          <button className="action-sheet-btn" onClick={() => onNavigate('/scan?mode=number')}>
             <span className="asb-icon">🔢</span>
             <div className="asb-text">
               <div className="asb-title">Search by card number</div>
@@ -562,10 +528,7 @@ function PokemonActionSheet({ pokemon, displayName, owned, onClose, onNavigate }
             <span className="asb-arrow">›</span>
           </button>
 
-          <button
-            className="action-sheet-btn"
-            onClick={() => onNavigate('/find')}
-          >
+          <button className="action-sheet-btn" onClick={() => onNavigate('/find')}>
             <span className="asb-icon">📦</span>
             <div className="asb-text">
               <div className="asb-title">Browse sets</div>

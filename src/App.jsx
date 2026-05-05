@@ -1,8 +1,10 @@
 // src/App.jsx
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useEffect } from 'react-router-dom';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { ThemeProvider } from './hooks/useTheme';
+import { CoinsProvider, useCoins } from './hooks/useCoins';
 import Navbar from './components/Navbar';
+import CoinToast from './components/CoinToast';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Home from './pages/Home';
@@ -18,6 +20,7 @@ import Join from './pages/Join';
 import Badges from './pages/Badges';
 import Analytics from './pages/Analytics';
 import SetGoals from './pages/SetGoals';
+import TrainerShop from './pages/TrainerShop';
 
 function ProtectedLayout({ children }) {
   const { user, loading } = useAuth();
@@ -33,6 +36,12 @@ function ProtectedLayout({ children }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
+  const { checkLoginStreak } = useCoins();
+
+  useEffect(() => {
+    if (user) checkLoginStreak();
+  }, [user]);
+
   if (loading) return <div className="page-loading fullscreen">Loading...</div>;
   return (
     <Routes>
@@ -51,6 +60,7 @@ function AppRoutes() {
       <Route path="/badges"         element={<ProtectedLayout><Badges /></ProtectedLayout>} />
       <Route path="/analytics"      element={<ProtectedLayout><Analytics /></ProtectedLayout>} />
       <Route path="/set-goals"      element={<ProtectedLayout><SetGoals /></ProtectedLayout>} />
+      <Route path="/shop"           element={<ProtectedLayout><TrainerShop /></ProtectedLayout>} />
       <Route path="*"               element={<Navigate to="/" replace />} />
     </Routes>
   );
@@ -60,9 +70,12 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <CoinsProvider>
+          <BrowserRouter>
+            <AppRoutes />
+            <CoinToast />
+          </BrowserRouter>
+        </CoinsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -161,8 +161,12 @@ export default function Find() {
 
       <div className="tab-bar">
         <button className={tab === 'search' ? 'tab active' : 'tab'} onClick={() => setTab('search')}>Search</button>
+        <button className={tab === 'type'   ? 'tab active' : 'tab'} onClick={() => setTab('type')}>By type</button>
         <button className={tab === 'browse' ? 'tab active' : 'tab'} onClick={() => setTab('browse')}>Browse sets</button>
       </div>
+
+      {/* ─── TYPE TAB ─── */}
+      {tab === 'type' && <TypeBrowser onAddToCollection={handleAddToCollection} onAddToWishlist={handleAddToWishlist} myCardIds={myCardIds} />}
 
       {/* ─── SEARCH TAB ─── */}
       {tab === 'search' && (
@@ -376,4 +380,120 @@ function groupResults(cards, groupBy) {
     return s;
   }
   return { all: cards };
+}
+
+// ─── Type Browser ───────────────────────────────────────────────
+const ENERGY_TYPES = [
+  { name:'Fire',      emoji:'🔥', color:'#E8563A' },
+  { name:'Water',     emoji:'💧', color:'#3B9DD2' },
+  { name:'Grass',     emoji:'🌿', color:'#5BAD3A' },
+  { name:'Lightning', emoji:'⚡', color:'#F5A623' },
+  { name:'Psychic',   emoji:'✨', color:'#9B59B6' },
+  { name:'Fighting',  emoji:'👊', color:'#C04E2C' },
+  { name:'Darkness',  emoji:'🌙', color:'#546E7A' },
+  { name:'Metal',     emoji:'⚙️', color:'#9EA0B0' },
+  { name:'Dragon',    emoji:'🐉', color:'#5B5BD6' },
+  { name:'Fairy',     emoji:'🎀', color:'#D4719B' },
+  { name:'Colorless', emoji:'⭐', color:'#9CA3AF' },
+];
+
+function TypeBrowser({ onAddToCollection, onAddToWishlist, myCardIds }) {
+  const [selectedType, setSelectedType] = useState(null);
+  const [cards, setCards]               = useState([]);
+  const [loading, setLoading]           = useState(false);
+  const [feedback, setFeedback]         = useState({});
+
+  const fetchType = async (type) => {
+    setSelectedType(type);
+    setCards([]);
+    setLoading(true);
+    try {
+      const res  = await fetch(
+        `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(`types:${type.name}`)}&pageSize=30&orderBy=-set.releaseDate`
+      );
+      const data = await res.json();
+      const USD  = 0.79;
+      setCards((data.data || []).map(c => {
+        const p = c.tcgplayer?.prices;
+        const tier = p ? (p.holofoil||p.normal||p['1stEditionNormal']||p.reverseHolofoil) : null;
+        const marketGBP = tier?.market ? (tier.market * USD).toFixed(2) : null;
+        return {
+          id: c.id, name: c.name, set_id: c.set?.id, set_name: c.set?.name,
+          set_series: c.set?.series, card_number: c.number, rarity: c.rarity,
+          image_small: c.images?.small, images: c.images,
+          types: c.types, artist: c.artist, hp: c.hp,
+          prices_gbp: marketGBP ? { market: marketGBP } : null,
+          market_price_gbp: marketGBP,
+        };
+      }));
+    } catch {}
+    setLoading(false);
+  };
+
+  const fb = (cardId, type) => {
+    setFeedback(f => ({ ...f, [cardId]: type }));
+    setTimeout(() => setFeedback(f => { const n={...f}; delete n[cardId]; return n; }), 2500);
+  };
+
+  return (
+    <div>
+      {/* Type chips */}
+      <div className="type-browser-chips">
+        {ENERGY_TYPES.map(t => (
+          <button key={t.name}
+            className={`type-chip ${selectedType?.name===t.name?'type-chip--active':''}`}
+            style={{'--tc': t.color}}
+            onClick={() => fetchType(t)}>
+            <span>{t.emoji}</span>
+            <span>{t.name}</span>
+          </button>
+        ))}
+      </div>
+
+      {!selectedType && (
+        <div className="empty-state" style={{marginTop:32}}>
+          Pick a type above to browse cards
+        </div>
+      )}
+
+      {loading && <div className="page-loading">Loading {selectedType?.name} cards...</div>}
+
+      {!loading && cards.length > 0 && (
+        <>
+          <div style={{fontSize:13,color:'var(--muted)',fontWeight:600,marginBottom:12}}>
+            {selectedType.emoji} {selectedType.name} — showing latest {cards.length} cards
+          </div>
+          <div className="card-grid-display">
+            {cards.map(card => (
+              <div key={card.id} className="card-tile">
+                <div className="card-tile-image">
+                  {card.image_small && <img src={card.image_small} alt={card.name} loading="lazy"/>}
+                </div>
+                <div className="card-tile-info">
+                  <div className="card-tile-name">{card.name}</div>
+                  <div className="card-tile-set">{card.set_name}</div>
+                  <div className="card-tile-rarity">{card.rarity}</div>
+                  {card.prices_gbp?.market && (
+                    <div style={{fontSize:11,color:'var(--green)',fontWeight:700}}>£{card.prices_gbp.market}</div>
+                  )}
+                  <div className="find-card-actions">
+                    {myCardIds.has(card.id)
+                      ? <span className="find-owned-tag">✓ Owned</span>
+                      : feedback[card.id]==='added'
+                        ? <span className="find-feedback find-feedback--added">✓ Added!</span>
+                        : <button className="btn btn-primary btn-xs" onClick={()=>{onAddToCollection(card);fb(card.id,'added');}}>+ Collection</button>
+                    }
+                    {feedback[card.id]==='wishlist'
+                      ? <span className="find-feedback find-feedback--wishlist">✓ Wishlisted</span>
+                      : <button className="btn btn-secondary btn-xs" onClick={()=>{onAddToWishlist(card);fb(card.id,'wishlist');}}>♡</button>
+                    }
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
