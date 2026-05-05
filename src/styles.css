@@ -2002,3 +2002,117 @@ img { max-width: 100%; display: block; }
   width: 60px; height: 60px; pointer-events: none;
 }
 .ls-hold-svg { width: 100%; height: 100%; }
+
+/* ─── Trades — safe trading UI ───────────────────────────────── */
+.trade-blocked-badge {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  background: var(--surface2); border: 1px solid var(--border);
+  padding: 8px 14px; border-radius: 100px; max-width: 300px; text-align: center;
+}
+.trade-blocked-full { text-align: center; padding: 48px 20px; }
+.trade-safety-notice {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: rgba(37,99,235,.06); border: 1.5px solid rgba(37,99,235,.2);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 20px;
+}
+.trade-safety-icon   { font-size: 20px; flex-shrink: 0; }
+.trade-safety-title  { font-size: 14px; font-weight: 800; margin-bottom: 3px; }
+.trade-safety-desc   { font-size: 12px; color: var(--muted); font-weight: 600; line-height: 1.6; }
+
+.trade-steps { display: flex; align-items: center; gap: 8px; margin-bottom: 24px; }
+.trade-step-dot {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; color: var(--muted); transition: all .2s;
+}
+.trade-step-dot.active { background: var(--yellow); border-color: var(--yellow); color: var(--black); }
+.trade-section-title { font-size: 15px; font-weight: 800; margin-bottom: 12px; }
+
+.trade-detail-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.trade-detail-with { display: flex; align-items: center; gap: 12px; }
+.trade-detail-cards {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: var(--surface2); border-radius: var(--radius); padding: 16px;
+  margin-bottom: 16px;
+}
+.trade-detail-side { flex: 1; }
+.trade-mini-card-detail { width: 68px; flex-shrink: 0; }
+.trade-mini-card-detail img { width: 68px; height: 95px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+
+.trade-actions-box {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px; margin-bottom: 14px;
+}
+.trade-actions-title { font-size: 15px; font-weight: 800; margin-bottom: 8px; }
+.trade-actions-hint  { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 14px; line-height: 1.6; }
+
+.trade-address-notice {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: rgba(22,163,74,.07); border: 1px solid rgba(22,163,74,.2);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px;
+  font-size: 13px; color: var(--green); font-weight: 600; line-height: 1.5;
+}
+.trade-address-input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface2);
+  font-size: 14px; color: var(--text); resize: none; margin-bottom: 12px;
+  font-family: var(--font); line-height: 1.6;
+}
+.trade-address-input:focus { outline: none; border-color: var(--yellow); }
+.trade-address-display {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 14px; font-size: 14px;
+  font-weight: 600; line-height: 1.7; white-space: pre-line;
+}
+
+.trade-summary-box {
+  display: flex; gap: 16px; align-items: flex-start;
+  background: var(--surface2); border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+}
+.trade-summary-side  { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.trade-summary-card  { display: flex; gap: 8px; align-items: center; }
+.trade-confirm-notice {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: rgba(245,166,35,.07); border: 1px solid rgba(245,166,35,.2);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+  font-size: 12px; color: var(--muted); font-weight: 600; line-height: 1.6;
+}
+
+/* ─── Parental consent ───────────────────────────────────────── */
+.consent-box {
+  display: flex; gap: 14px; align-items: flex-start;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px; margin-bottom: 16px;
+}
+.consent-box--ok      { border-color: rgba(22,163,74,.35); background: rgba(22,163,74,.04); }
+.consent-box--pending { border-color: rgba(37,99,235,.3); background: rgba(37,99,235,.04); }
+.consent-icon  { font-size: 24px; flex-shrink: 0; margin-top: 2px; }
+.consent-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+.consent-sub   { font-size: 13px; color: var(--muted); font-weight: 600; line-height: 1.6; }
+.consent-form  { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.consent-form .search-input { flex: 1; min-width: 200px; border-radius: var(--radius-sm); }
+.consent-error { font-size: 12px; color: var(--red); font-weight: 700; margin-bottom: 6px; }
+.consent-note  { font-size: 11px; color: var(--muted); font-weight: 600; line-height: 1.6; margin-top: 6px; }
+
+/* ─── Trade value warning ────────────────────────────────────── */
+.value-warning {
+  border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.value-warning--mild   { background: rgba(245,166,35,.08); border: 1.5px solid rgba(245,166,35,.3); }
+.value-warning--severe { background: rgba(220,38,38,.08);  border: 1.5px solid rgba(220,38,38,.35); }
+.value-warning-icon { font-size: 22px; flex-shrink: 0; }
+.value-warning-body { flex: 1; }
+.value-warning-title { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+.value-warning-desc  { font-size: 13px; color: var(--muted); font-weight: 600; line-height: 1.6; margin-bottom: 12px; }
+.value-warning-compare { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 14px; }
+.vwc-side  { flex: 1; text-align: center; }
+.vwc-label { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 3px; }
+.vwc-value { font-size: 20px; font-weight: 900; color: var(--text); }
+.vwc-value--high { color: var(--red); }
+.vwc-arrow { font-size: 20px; color: var(--muted); }
+.value-warning-actions { display: flex; gap: 8px; flex-wrap: wrap; }
