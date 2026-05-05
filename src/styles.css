@@ -1742,3 +1742,240 @@ img { max-width: 100%; display: block; }
   background: rgba(22,163,74,.1); border: 1px solid rgba(22,163,74,.25);
   padding: 8px 16px; border-radius: 100px;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   HOME PAGE — gamified redesign (hm-)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Entrance animation */
+.hm-in { animation: hmSlideUp .45s cubic-bezier(.22,1,.36,1) both; }
+@keyframes hmSlideUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── Hero ── */
+.hm-hero {
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(135deg, var(--yellow-light) 0%, var(--surface) 100%);
+  border: 1.5px solid var(--border-yellow); border-radius: 20px;
+  padding: 22px 24px; margin-bottom: 12px; position: relative; overflow: hidden;
+}
+.hm-hero::after { content:'⚡'; position:absolute; right:90px; top:50%; transform:translateY(-50%); font-size:72px; opacity:.06; pointer-events:none; }
+.hm-greeting { font-size:13px; font-weight:700; color:var(--muted); }
+.hm-name     { font-size:26px; font-weight:900; line-height:1.1; margin:2px 0; }
+.hm-bolt     { display:inline-block; animation:boltBeat 2.5s ease-in-out infinite; }
+.hm-tagline  { font-size:13px; color:var(--muted); font-weight:600; }
+.hm-avatar {
+  width:50px; height:50px; border-radius:50%; flex-shrink:0;
+  background:var(--yellow); color:var(--black); font-size:20px; font-weight:900;
+  display:flex; align-items:center; justify-content:center;
+  border:2.5px solid var(--border-yellow); overflow:hidden; text-decoration:none;
+  box-shadow: 0 0 0 4px rgba(245,166,35,.12);
+}
+.hm-avatar img { width:100%; height:100%; object-fit:cover; }
+
+/* ── Level bar ── */
+.hm-level-bar {
+  display:flex; align-items:center; gap:12px;
+  background:var(--surface); border:1.5px solid var(--border-yellow);
+  border-radius:16px; padding:14px 16px; margin-bottom:10px;
+  text-decoration:none; transition:box-shadow .2s;
+}
+.hm-level-bar:hover { box-shadow:var(--glow); }
+.hm-level-badge {
+  background:var(--yellow); color:var(--black); font-size:12px; font-weight:900;
+  padding:4px 10px; border-radius:8px; flex-shrink:0; letter-spacing:.03em;
+}
+.hm-level-info { flex:1; min-width:0; }
+.hm-level-title { font-size:14px; font-weight:800; margin-bottom:6px; }
+.hm-xp-track { height:7px; background:var(--surface2); border-radius:4px; overflow:hidden; margin-bottom:4px; }
+.hm-xp-fill  { height:100%; background:linear-gradient(90deg,var(--yellow),var(--yellow-dark)); border-radius:4px; transition:width 1.2s cubic-bezier(.22,1,.36,1); box-shadow:0 0 6px rgba(245,166,35,.4); }
+.hm-xp-label { font-size:11px; color:var(--muted); font-weight:600; }
+.hm-level-arrow { font-size:20px; color:var(--muted); flex-shrink:0; }
+
+/* ── Next milestone nudge ── */
+.hm-nudge {
+  display:flex; align-items:center; gap:10px;
+  background:var(--surface2); border:1.5px solid var(--border);
+  border-radius:14px; padding:11px 14px; margin-bottom:16px;
+  text-decoration:none; font-size:13px; font-weight:700; color:var(--text);
+  transition:border-color .2s;
+}
+.hm-nudge:hover { border-color:var(--yellow); }
+.hm-nudge-icon  { font-size:20px; flex-shrink:0; }
+.hm-nudge-label { flex:1; }
+.hm-nudge-arrow { font-size:16px; color:var(--yellow); }
+
+/* ── Progress rings ── */
+.hm-rings {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;
+}
+.hm-ring-tile {
+  background:var(--surface); border:1.5px solid var(--border); border-radius:18px;
+  padding:14px 8px 10px; display:flex; flex-direction:column; align-items:center; gap:6px;
+  text-decoration:none; transition:border-color .2s, transform .2s, box-shadow .2s;
+}
+.hm-ring-tile:hover { border-color:var(--border-yellow); transform:translateY(-3px); box-shadow:var(--glow); }
+.hm-ring-label { font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+
+/* ── Quick actions ── */
+.hm-actions {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px;
+}
+.hm-action {
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  background:var(--surface); border:1.5px solid var(--border); border-radius:16px;
+  padding:14px 8px; font-size:12px; font-weight:800; color:var(--text);
+  text-decoration:none; transition:all .15s;
+}
+.hm-action span:first-child { font-size:22px; }
+.hm-action:hover { border-color:var(--yellow); color:var(--yellow); transform:translateY(-2px); box-shadow:var(--glow); }
+.hm-action--primary { background:var(--yellow); color:var(--black); border-color:var(--yellow); }
+.hm-action--primary:hover { background:var(--yellow-dark); color:var(--black); border-color:var(--yellow-dark); }
+
+/* ── Trade alert ── */
+.hm-trade-alert {
+  display:flex; align-items:center; gap:10px;
+  background:rgba(245,166,35,.08); border:1.5px solid rgba(245,166,35,.35);
+  border-radius:14px; padding:12px 16px; margin-bottom:14px;
+  text-decoration:none; font-size:13px; font-weight:700; color:var(--yellow);
+  transition:background .2s; position:relative; overflow:hidden;
+}
+.hm-trade-alert:hover { background:rgba(245,166,35,.14); }
+.hm-trade-ping {
+  width:10px; height:10px; border-radius:50%; background:var(--yellow); flex-shrink:0;
+  box-shadow:0 0 0 0 rgba(245,166,35,.4);
+  animation:tradePing 1.4s ease-in-out infinite;
+}
+@keyframes tradePing { 0%{box-shadow:0 0 0 0 rgba(245,166,35,.4)} 70%{box-shadow:0 0 0 8px rgba(245,166,35,0)} 100%{box-shadow:0 0 0 0 rgba(245,166,35,0)} }
+
+/* ── Generic panel ── */
+.hm-panel {
+  background:var(--surface); border:1.5px solid var(--border);
+  border-radius:18px; padding:16px 18px; margin-bottom:14px;
+}
+.hm-panel-head {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:14px; font-weight:800; margin-bottom:14px;
+}
+.hm-panel-link { font-size:12px; font-weight:700; color:var(--yellow); text-decoration:none; }
+
+/* ── Rarity bars ── */
+.hm-rarity-bars { display:flex; flex-direction:column; gap:9px; }
+.hm-rarity-row  { display:flex; align-items:center; gap:10px; }
+.hm-rarity-label { font-size:12px; font-weight:700; min-width:90px; flex-shrink:0; }
+.hm-rarity-track { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; }
+.hm-rarity-fill  { height:100%; border-radius:4px; transition:width .9s cubic-bezier(.22,1,.36,1); }
+.hm-rarity-count { font-size:12px; font-weight:800; min-width:28px; text-align:right; }
+
+/* ── Top cards ── */
+.hm-top-cards { display:flex; flex-direction:column; gap:8px; }
+.hm-top-row   { display:flex; align-items:center; gap:10px; padding:4px 0; border-bottom:1px solid var(--border); }
+.hm-top-row:last-child { border-bottom:none; }
+.hm-top-rank  { font-size:16px; min-width:28px; text-align:center; flex-shrink:0; }
+.hm-top-img   { width:30px; height:42px; object-fit:cover; border-radius:3px; flex-shrink:0; }
+.hm-top-info  { flex:1; min-width:0; }
+.hm-top-name  { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hm-top-set   { font-size:11px; color:var(--muted); font-weight:600; }
+.hm-top-val   { font-size:14px; font-weight:900; color:var(--green); white-space:nowrap; }
+
+/* ── Value forecast ── */
+.hm-forecast { }
+.hm-forecast-rate { font-size:11px; font-weight:700; color:var(--green); background:rgba(22,163,74,.1); padding:3px 8px; border-radius:8px; }
+.hm-forecast-bars {
+  display:flex; align-items:flex-end; gap:8px; height:120px; margin-bottom:8px;
+}
+.hm-forecast-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; height:100%; justify-content:flex-end; }
+.hm-forecast-val   { font-size:11px; font-weight:800; white-space:nowrap; }
+.hm-forecast-track { flex:1; width:100%; display:flex; align-items:flex-end; }
+.hm-forecast-bar   { width:100%; border-radius:6px 6px 0 0; transition:height 1s cubic-bezier(.22,1,.36,1); }
+.hm-forecast-label { font-size:11px; color:var(--muted); font-weight:700; }
+.hm-forecast-note  { font-size:10px; color:var(--muted); margin-top:4px; }
+
+/* ── Badges teaser ── */
+.hm-badges-teaser:hover { box-shadow:var(--glow); border-color:var(--border-yellow); }
+.hm-badge-chips { display:flex; flex-wrap:wrap; gap:7px; margin-bottom:12px; }
+.hm-badge-chip  {
+  font-size:12px; font-weight:700; padding:5px 12px; border-radius:100px;
+  background:color-mix(in srgb, var(--c) 12%, transparent);
+  border:1.5px solid color-mix(in srgb, var(--c) 30%, transparent);
+  color:color-mix(in srgb, var(--c) 80%, var(--text));
+  animation:chipPop .3s cubic-bezier(.22,1,.36,1) both;
+}
+.hm-badge-progress { height:5px; background:var(--surface2); border-radius:3px; overflow:hidden; margin-bottom:5px; }
+.hm-badge-prog-fill { height:100%; background:var(--yellow); border-radius:3px; transition:width 1.2s cubic-bezier(.22,1,.36,1); }
+.hm-badge-prog-label { font-size:11px; color:var(--muted); font-weight:600; }
+
+/* ── Wishlist scroll ── */
+.hm-wishlist-scroll { display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+.hm-wish-tile  { flex-shrink:0; width:72px; text-align:center; }
+.hm-wish-img   { width:72px; height:100px; object-fit:cover; border-radius:8px; border:1.5px solid var(--border); margin-bottom:4px; }
+.hm-wish-placeholder { width:72px; height:100px; background:var(--surface2); border-radius:8px; border:1.5px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:4px; }
+.hm-wish-name  { font-size:10px; font-weight:700; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.hm-wish-price { font-size:11px; font-weight:800; color:var(--green); }
+
+/* Responsive */
+@media (max-width:480px) {
+  .hm-rings { grid-template-columns:repeat(2,1fr); }
+  .hm-hero  { padding:18px 18px; }
+  .hm-name  { font-size:22px; }
+}
+
+/* ─── Single card scanner ────────────────────────────────────── */
+.single-drop-zone {
+  border: 2px dashed var(--border); border-radius: 20px;
+  padding: 44px 24px; text-align: center; max-width: 480px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  transition: border-color .2s, background .2s; cursor: pointer;
+}
+.single-drop-zone:hover { border-color: var(--yellow); background: rgba(245,166,35,.03); }
+.single-drop-title { font-size: 17px; font-weight: 800; }
+.single-drop-hint  { font-size: 13px; color: var(--muted); font-weight: 600; max-width: 320px; line-height: 1.6; }
+.single-drop-btns  { display: flex; gap: 10px; margin-top: 4px; }
+
+.single-scan-layout { display: flex; flex-direction: column; gap: 16px; max-width: 480px; }
+
+.single-photo-wrap {
+  position: relative; border-radius: var(--radius); overflow: hidden;
+  border: 1.5px solid var(--border); background: #000; max-height: 55vh;
+}
+.single-photo { width: 100%; display: block; object-fit: contain; max-height: 55vh; }
+
+.single-scanning-overlay {
+  position: absolute; inset: 0; background: rgba(0,0,0,.35);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+}
+.single-scan-beam {
+  width: 80%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+  box-shadow: 0 0 10px var(--yellow);
+  animation: scanLine 1.4s ease-in-out infinite;
+}
+.single-scanning-label {
+  font-size: 14px; font-weight: 800; color: var(--yellow);
+  background: rgba(0,0,0,.6); padding: 6px 16px; border-radius: 100px;
+}
+
+.single-result-loading {
+  text-align: center; padding: 24px; font-size: 14px; font-weight: 700; color: var(--muted);
+}
+.single-result { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 16px; }
+.single-result-error, .single-result-notfound { text-align: center; padding: 8px 0; }
+.single-result-saved { text-align: center; padding: 8px 0; }
+.single-saved-icon {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: rgba(22,163,74,.12); color: var(--green); border: 2px solid rgba(22,163,74,.3);
+  font-size: 22px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 10px;
+}
+.single-result-match {
+  display: flex; gap: 16px; align-items: flex-start;
+}
+.single-result-img   { width: 100px; border-radius: var(--radius-sm); flex-shrink: 0; box-shadow: var(--shadow); }
+.single-result-info  { flex: 1; }
+.single-result-name  { font-size: 17px; font-weight: 900; margin-bottom: 3px; }
+.single-result-set   { font-size: 13px; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+.single-result-num   { font-size: 12px; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
+.single-result-rarity{ font-size: 12px; color: var(--yellow); font-weight: 700; margin-bottom: 4px; }
+.single-result-price { font-size: 18px; font-weight: 900; color: var(--green); margin-bottom: 8px; }
+.single-result-dupe  { font-size: 12px; color: var(--yellow); font-weight: 700; margin-bottom: 8px;
+  background: rgba(245,166,35,.1); border: 1px solid rgba(245,166,35,.3); padding: 4px 10px; border-radius: 8px; display: inline-block; }
+.single-result-actions { display: flex; gap: 8px; flex-wrap: wrap; }

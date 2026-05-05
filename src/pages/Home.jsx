@@ -1,27 +1,74 @@
 // src/pages/Home.jsx
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
 import { useTrades } from '../hooks/useTrades';
 import { getWishlist } from '../lib/supabase';
 
-// Pokémon card appreciation rates based on historical data
-// Vintage (pre-2000) ~15%/yr, Modern holos ~8%/yr, Commons ~3%/yr
-function getAnnualRate(rarity, setYear) {
-  const isVintage = setYear && setYear < 2000;
+function getAnnualRate(rarity) {
   if (!rarity) return 0.05;
   const r = rarity.toLowerCase();
-  if (r.includes('illustration') || r.includes('special') || r.includes('hyper')) return isVintage ? 0.18 : 0.12;
-  if (r.includes('secret') || r.includes('ultra')) return isVintage ? 0.16 : 0.10;
-  if (r.includes('holo')) return isVintage ? 0.15 : 0.08;
-  if (r.includes('rare')) return isVintage ? 0.12 : 0.06;
-  if (r.includes('uncommon')) return 0.04;
-  return 0.03; // common
+  if (r.includes('illustration') || r.includes('special')) return 0.12;
+  if (r.includes('secret') || r.includes('ultra')) return 0.10;
+  if (r.includes('holo')) return 0.08;
+  if (r.includes('rare')) return 0.06;
+  return 0.04;
 }
 
-function projectValue(currentValue, rate, years) {
-  return currentValue * Math.pow(1 + rate, years);
+// Animated counter hook
+function useCountUp(target, duration = 900, trigger = true) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (!trigger || target === 0) { setVal(target); return; }
+    let start = null;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const p = Math.min((ts - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - p, 3);
+      setVal(Math.round(ease * target));
+      if (p < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [target, trigger]);
+  return val;
+}
+
+// XP levels
+function getLevel(cards) {
+  if (cards >= 1000) return { level: 10, title: 'Master collector', next: null };
+  if (cards >= 500)  return { level: 9,  title: 'Elite trainer',    next: 1000 };
+  if (cards >= 250)  return { level: 8,  title: 'Champion',         next: 500  };
+  if (cards >= 100)  return { level: 7,  title: 'Ace trainer',      next: 250  };
+  if (cards >= 50)   return { level: 6,  title: 'Collector',        next: 100  };
+  if (cards >= 25)   return { level: 5,  title: 'Card hunter',      next: 50   };
+  if (cards >= 10)   return { level: 4,  title: 'Getting started',  next: 25   };
+  if (cards >= 5)    return { level: 3,  title: 'Rookie trainer',   next: 10   };
+  if (cards >= 1)    return { level: 2,  title: 'First steps',      next: 5    };
+  return              { level: 1,  title: 'New trainer',    next: 1    };
+}
+
+// SVG ring
+function Ring({ pct, size = 110, stroke = 11, color = '#F5A623', bg = 'var(--surface2)', children }) {
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const [animated, setAnimated] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setAnimated(pct), 120);
+    return () => clearTimeout(t);
+  }, [pct]);
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{display:'block'}}>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={bg} strokeWidth={stroke}/>
+      <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color}
+        strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={`${animated/100*circ} ${circ}`}
+        transform={`rotate(-90 ${size/2} ${size/2})`}
+        style={{transition:'stroke-dasharray 1s cubic-bezier(.22,1,.36,1)'}}
+      />
+      {children}
+    </svg>
+  );
 }
 
 export default function Home() {
@@ -29,322 +76,317 @@ export default function Home() {
   const { cards, bySet }  = useCollection();
   const { incoming }      = useTrades();
   const [wishlist, setWishlist] = useState([]);
+  const [mounted, setMounted]   = useState(false);
 
   useEffect(() => {
     if (user) getWishlist(user.id).then(({ data }) => setWishlist(data || []));
+    const t = setTimeout(() => setMounted(true), 100);
+    return () => clearTimeout(t);
   }, [user]);
 
-
   const collectionValue = useMemo(() =>
-    cards.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
-  , [cards]);
+    cards.reduce((s, c) => s + parseFloat(c.market_price_gbp || 0), 0), [cards]);
 
   const wishlistTotal = useMemo(() =>
-    wishlist.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0)
-  , [wishlist]);
+    wishlist.reduce((s, c) => s + parseFloat(c.market_price_gbp || 0), 0), [wishlist]);
 
-  // Top 5 most valuable cards
   const top5Cards = useMemo(() =>
-    [...cards]
-      .filter(c => c.market_price_gbp > 0)
+    [...cards].filter(c => c.market_price_gbp > 0)
       .sort((a, b) => parseFloat(b.market_price_gbp) - parseFloat(a.market_price_gbp))
-      .slice(0, 5)
-  , [cards]);
+      .slice(0, 5), [cards]);
 
-  // Collection value projection
   const projections = useMemo(() => {
-    if (collectionValue === 0) return null;
-    const totalRate = cards.reduce((sum, c) => {
-      const val = parseFloat(c.market_price_gbp || 0);
-      if (!val) return sum;
-      const rate = getAnnualRate(c.rarity, c.set_year);
-      return sum + (val * rate);
+    if (!collectionValue) return null;
+    const rate = cards.reduce((s, c) => {
+      const v = parseFloat(c.market_price_gbp || 0);
+      return s + (v ? v * getAnnualRate(c.rarity) : 0);
     }, 0) / (collectionValue || 1);
-
     return {
-      rate: totalRate,
-      y10: projectValue(collectionValue, totalRate, 10),
-      y20: projectValue(collectionValue, totalRate, 20),
-      y30: projectValue(collectionValue, totalRate, 30),
+      rate, now: collectionValue,
+      y10: collectionValue * Math.pow(1+rate, 10),
+      y20: collectionValue * Math.pow(1+rate, 20),
+      y30: collectionValue * Math.pow(1+rate, 30),
     };
   }, [cards, collectionValue]);
 
-  // Set breakdown
-  const setValues = useMemo(() =>
-    Object.entries(bySet).map(([setId, { set_name, cards: sc }]) => ({
-      setId, set_name,
-      count: sc.length,
-      value: sc.reduce((sum, c) => sum + parseFloat(c.market_price_gbp || 0), 0),
-    })).sort((a, b) => b.value - a.value).slice(0, 5)
-  , [bySet]);
-
+  const setCount  = Object.keys(bySet).length;
+  const dexCount  = useMemo(() => {
+    const names = new Set();
+    cards.forEach(c => {
+      const n = (c.card_name||'').toLowerCase().replace(/\s*(ex|gx|v|vmax|vstar|mega).*$/,'').trim();
+      if (n) names.add(n);
+    });
+    return names.size;
+  }, [cards]);
   const tradeableCount = cards.filter(c => c.is_tradeable).length;
 
+  const lvl = getLevel(cards.length);
+  const xpPct = lvl.next
+    ? Math.round(((cards.length - (lvl.next > 500 ? lvl.next/2 : 0)) / lvl.next) * 100)
+    : 100;
+  const dexPct     = Math.min(100, Math.round((dexCount / 1025) * 100));
+  const valuePct   = collectionValue > 0 ? Math.min(100, Math.round((collectionValue / 1000) * 100)) : 0;
+  const tradesPct  = cards.length > 0 ? Math.min(100, Math.round((tradeableCount / cards.length) * 100)) : 0;
+
+  const animCards  = useCountUp(cards.length, 900, mounted);
+  const animValue  = useCountUp(Math.round(collectionValue), 1100, mounted);
+  const animSets   = useCountUp(setCount, 700, mounted);
+  const animDex    = useCountUp(dexCount, 800, mounted);
+
+  const greetingHour = new Date().getHours();
+  const greeting = greetingHour < 12 ? 'Good morning' : greetingHour < 17 ? 'Hey' : 'Evening';
+
+  // Milestones to show as "next goal"
+  const nextMilestone = useMemo(() => {
+    if (cards.length < 1)   return { label: 'Scan your first card!', icon: '📷', to: '/scan' };
+    if (cards.length < 10)  return { label: `Scan ${10 - cards.length} more cards to reach Level 4`, icon: '🃏', to: '/scan' };
+    if (cards.length < 50)  return { label: `${50 - cards.length} cards until Collector rank`, icon: '📚', to: '/scan' };
+    if (cards.length < 100) return { label: `${100 - cards.length} cards until Century badge`, icon: '💯', to: '/scan' };
+    if (!collectionValue)   return { label: 'Fetch prices to see your collection value', icon: '💰', to: '/collection' };
+    if (wishlist.length < 1)return { label: 'Add cards to your wishlist', icon: '⭐', to: '/find' };
+    return { label: 'Keep collecting — you\'re doing great!', icon: '⚡', to: '/badges' };
+  }, [cards.length, collectionValue, wishlist.length]);
+
+  // Rarity breakdown for mini chart
+  const rarityBreakdown = useMemo(() => {
+    const m = {};
+    cards.forEach(c => {
+      const r = c.rarity?.toLowerCase().includes('ultra') ? 'Ultra Rare'
+        : c.rarity?.toLowerCase().includes('holo') ? 'Holo Rare'
+        : c.rarity?.toLowerCase().includes('rare') ? 'Rare'
+        : c.rarity?.toLowerCase().includes('uncommon') ? 'Uncommon'
+        : 'Common';
+      m[r] = (m[r]||0) + 1;
+    });
+    const order = ['Ultra Rare','Holo Rare','Rare','Uncommon','Common'];
+    const colors = {'Ultra Rare':'#F5A623','Holo Rare':'#9B59B6','Rare':'#3B9DD2','Uncommon':'#5BAD3A','Common':'#9CA3AF'};
+    return order.filter(k => m[k]).map(k => ({ label:k, count:m[k], color:colors[k], pct: Math.round(m[k]/cards.length*100) }));
+  }, [cards]);
+
   return (
-    <div className="page-container">
+    <div className="page-container hm">
 
-      {/* Hero */}
-      <div className="home-hero">
-        <h1>Hey, <span>{profile?.display_name || profile?.username}!</span> ⚡</h1>
-        <p>Welcome to Scanachu — your Pokémon card tracker</p>
+      {/* ── Hero greeting ── */}
+      <div className={`hm-hero ${mounted?'hm-in':''}`}>
+        <div className="hm-hero-text">
+          <div className="hm-greeting">{greeting},</div>
+          <h1 className="hm-name">{profile?.display_name || profile?.username}! <span className="hm-bolt">⚡</span></h1>
+          <div className="hm-tagline">Your Pokémon card tracker</div>
+        </div>
+        <Link to="/account" className="hm-avatar">
+          {profile?.avatar_url
+            ? <img src={profile.avatar_url} alt="avatar"/>
+            : (profile?.display_name||profile?.username||'?')[0].toUpperCase()
+          }
+        </Link>
       </div>
 
-      {/* Stats */}
-      <div className="stats-grid">
-        <Link to="/collection" className="stat-card">
-          <div className="stat-number">{cards.length}</div>
-          <div className="stat-label">Cards owned</div>
+      {/* ── Level / XP bar ── */}
+      <Link to="/badges" className={`hm-level-bar ${mounted?'hm-in':''}`} style={{animationDelay:'.1s'}}>
+        <div className="hm-level-badge">LV{lvl.level}</div>
+        <div className="hm-level-info">
+          <div className="hm-level-title">{lvl.title}</div>
+          <div className="hm-xp-track">
+            <div className="hm-xp-fill" style={{width: mounted ? `${Math.min(100,Math.round((cards.length/(lvl.next||1))*100))}%` : '0%'}}/>
+          </div>
+          <div className="hm-xp-label">
+            {lvl.next ? `${cards.length} / ${lvl.next} cards to next level` : '🏆 Max level reached!'}
+          </div>
+        </div>
+        <div className="hm-level-arrow">›</div>
+      </Link>
+
+      {/* ── Next milestone nudge ── */}
+      <Link to={nextMilestone.to} className={`hm-nudge ${mounted?'hm-in':''}`} style={{animationDelay:'.18s'}}>
+        <span className="hm-nudge-icon">{nextMilestone.icon}</span>
+        <span className="hm-nudge-label">{nextMilestone.label}</span>
+        <span className="hm-nudge-arrow">→</span>
+      </Link>
+
+      {/* ── Progress rings ── */}
+      <div className={`hm-rings ${mounted?'hm-in':''}`} style={{animationDelay:'.22s'}}>
+
+        <Link to="/collection" className="hm-ring-tile">
+          <Ring pct={Math.min(100, Math.round(cards.length/100*100))} color="#F5A623">
+            <text x="55" y="50" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--text)">{animCards}</text>
+            <text x="55" y="64" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--muted)">CARDS</text>
+          </Ring>
+          <div className="hm-ring-label">Collection</div>
         </Link>
-        <Link to="/my-pokedex" className="stat-card">
-          <div className="stat-number">{Object.keys(bySet).length}</div>
-          <div className="stat-label">Sets collected</div>
+
+        <Link to="/analytics" className="hm-ring-tile">
+          <Ring pct={valuePct} color="#16A34A">
+            <text x="55" y="48" textAnchor="middle" fontSize="13" fontWeight="800" fill="var(--text)">£{animValue}</text>
+            <text x="55" y="62" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--muted)">VALUE</text>
+          </Ring>
+          <div className="hm-ring-label">Value</div>
         </Link>
-        {collectionValue > 0 && (
-          <Link to="/collection" className="stat-card" style={{borderColor:'rgba(74,222,128,.3)'}}>
-            <div className="stat-number" style={{color:'var(--green)'}}>£{collectionValue.toFixed(0)}</div>
-            <div className="stat-label">Collection value</div>
-          </Link>
-        )}
-        <Link to="/wishlist" className="stat-card">
-          <div className="stat-number">{wishlist.length}</div>
-          <div className="stat-label">On wishlist</div>
+
+        <Link to="/my-pokedex" className="hm-ring-tile">
+          <Ring pct={dexPct} color="#3B9DD2">
+            <text x="55" y="50" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--text)">{animDex}</text>
+            <text x="55" y="64" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--muted)">POKÉMON</text>
+          </Ring>
+          <div className="hm-ring-label">Pokédex</div>
         </Link>
-        {wishlistTotal > 0 && (
-          <Link to="/wishlist" className="stat-card">
-            <div className="stat-number">£{wishlistTotal.toFixed(0)}</div>
-            <div className="stat-label">Wishlist value</div>
-          </Link>
-        )}
-        <Link to="/collection" className="stat-card">
-          <div className="stat-number">{tradeableCount}</div>
-          <div className="stat-label">For trade</div>
+
+        <Link to="/collection" className="hm-ring-tile">
+          <Ring pct={Math.min(100, Math.round(setCount/50*100))} color="#9B59B6">
+            <text x="55" y="50" textAnchor="middle" fontSize="20" fontWeight="800" fill="var(--text)">{animSets}</text>
+            <text x="55" y="64" textAnchor="middle" fontSize="9" fontWeight="700" fill="var(--muted)">SETS</text>
+          </Ring>
+          <div className="hm-ring-label">Sets</div>
         </Link>
-        {incoming.length > 0 && (
-          <Link to="/trades" className="stat-card stat-card--alert">
-            <div className="stat-number">{incoming.length}</div>
-            <div className="stat-label">Trade offer{incoming.length !== 1 ? 's' : ''}</div>
-          </Link>
-        )}
+
       </div>
 
-      {/* Quick actions */}
-      <div className="quick-actions">
-        <Link to="/scan"       className="quick-action"><span className="qa-icon">📷</span><span>Scan cards</span></Link>
-        <Link to="/my-pokedex" className="quick-action"><span className="qa-icon">📖</span><span>My Pokédex</span></Link>
-        <Link to="/find"       className="quick-action"><span className="qa-icon">🔍</span><span>Find cards</span></Link>
-        <Link to="/wishlist"   className="quick-action"><span className="qa-icon">⭐</span><span>Wishlist</span></Link>
-        <Link to="/badges"     className="quick-action"><span className="qa-icon">🏆</span><span>Badges</span></Link>
-        <Link to="/analytics"  className="quick-action"><span className="qa-icon">📊</span><span>Analytics</span></Link>
+      {/* ── Quick actions ── */}
+      <div className={`hm-actions ${mounted?'hm-in':''}`} style={{animationDelay:'.3s'}}>
+        <Link to="/scan"       className="hm-action hm-action--primary"><span>📷</span><span>Scan cards</span></Link>
+        <Link to="/find"       className="hm-action"><span>🔍</span><span>Find cards</span></Link>
+        <Link to="/my-pokedex" className="hm-action"><span>📖</span><span>Pokédex</span></Link>
+        <Link to="/wishlist"   className="hm-action"><span>⭐</span><span>Wishlist</span></Link>
+        <Link to="/badges"     className="hm-action"><span>🏆</span><span>Badges</span></Link>
+        <Link to="/analytics"  className="hm-action"><span>📊</span><span>Analytics</span></Link>
       </div>
 
-      {/* Trade alert */}
+      {/* ── Trade alert ── */}
       {incoming.length > 0 && (
-        <Link to="/trades" style={{display:'block',background:'rgba(255,215,0,.08)',border:'1px solid rgba(255,215,0,.3)',borderRadius:'var(--radius)',padding:'16px 20px',marginBottom:20}}>
-          <div style={{fontSize:15,fontWeight:600,color:'var(--yellow)'}}>⚡ {incoming.length} pending trade offer{incoming.length !== 1 ? 's' : ''}</div>
-          <div style={{fontSize:13,color:'var(--muted)',marginTop:2}}>Tap to review and respond</div>
+        <Link to="/trades" className="hm-trade-alert">
+          <span className="hm-trade-ping"/>
+          <span>⚡ {incoming.length} trade offer{incoming.length !== 1 ? 's' : ''} waiting</span>
+          <span className="hm-nudge-arrow">→</span>
         </Link>
       )}
 
-      {/* Badges panel */}
-      <Link to="/badges" style={{display:'block',textDecoration:'none',marginBottom:20}}>
-        <div className="home-panel" style={{cursor:'pointer'}}>
-          <div className="home-panel-header">
-            <h2>🏆 Your badges</h2>
-            <span className="link-sm">View all →</span>
+      {/* ── Rarity breakdown mini bar chart ── */}
+      {rarityBreakdown.length > 0 && (
+        <div className={`hm-panel ${mounted?'hm-in':''}`} style={{animationDelay:'.38s'}}>
+          <div className="hm-panel-head">
+            <span>✨ Rarity breakdown</span>
+            <Link to="/analytics" className="hm-panel-link">Full analytics →</Link>
           </div>
-          <div className="home-panel-body">
-            <div style={{fontSize:13,color:'var(--muted)',marginBottom:10}}>
-              Unlock badges by scanning cards, completing sets, making trades and more. Tap to see your progress.
-            </div>
-            <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-              {cards.length > 0  && <span style={{background:'rgba(245,166,35,.1)',color:'var(--yellow)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'100px',fontSize:12,fontWeight:700,padding:'4px 12px'}}>📷 First scan ✓</span>}
-              {cards.length >= 10 && <span style={{background:'rgba(245,166,35,.1)',color:'var(--yellow)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'100px',fontSize:12,fontWeight:700,padding:'4px 12px'}}>🃏 10 cards ✓</span>}
-              {cards.length >= 50 && <span style={{background:'rgba(245,166,35,.1)',color:'var(--yellow)',border:'1px solid rgba(245,166,35,.3)',borderRadius:'100px',fontSize:12,fontWeight:700,padding:'4px 12px'}}>📚 50 cards ✓</span>}
-              {cards.length === 0 && <span style={{color:'var(--muted)',fontSize:13}}>Scan your first card to start earning badges!</span>}
-            </div>
+          <div className="hm-rarity-bars">
+            {rarityBreakdown.map(r => (
+              <div key={r.label} className="hm-rarity-row">
+                <div className="hm-rarity-label">{r.label}</div>
+                <div className="hm-rarity-track">
+                  <div className="hm-rarity-fill" style={{width: mounted ? `${r.pct}%` : '0%', background: r.color}}/>
+                </div>
+                <div className="hm-rarity-count" style={{color: r.color}}>{r.count}</div>
+              </div>
+            ))}
           </div>
         </div>
+      )}
+
+      {/* ── Top cards ── */}
+      {top5Cards.length > 0 && (
+        <div className={`hm-panel ${mounted?'hm-in':''}`} style={{animationDelay:'.44s'}}>
+          <div className="hm-panel-head">
+            <span>💎 Most valuable</span>
+            <Link to="/analytics" className="hm-panel-link">See all →</Link>
+          </div>
+          <div className="hm-top-cards">
+            {top5Cards.map((card, i) => (
+              <div key={card.id} className="hm-top-row">
+                <div className="hm-top-rank" style={{color: i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':'var(--muted)'}}>
+                  {i===0?'🥇':i===1?'🥈':i===2?'🥉':`#${i+1}`}
+                </div>
+                {card.image_url && <img src={card.image_url} alt={card.card_name} className="hm-top-img"/>}
+                <div className="hm-top-info">
+                  <div className="hm-top-name">{card.card_name}</div>
+                  <div className="hm-top-set">{card.set_name}</div>
+                </div>
+                <div className="hm-top-val">£{parseFloat(card.market_price_gbp).toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Value forecast teaser ── */}
+      {projections && (
+        <div className={`hm-panel hm-forecast ${mounted?'hm-in':''}`} style={{animationDelay:'.5s'}}>
+          <div className="hm-panel-head">
+            <span>📈 Value forecast</span>
+            <span className="hm-forecast-rate">~{Math.round(projections.rate*100)}%/yr avg</span>
+          </div>
+          <div className="hm-forecast-bars">
+            {[
+              {label:'Now',  val:projections.now, color:'#9CA3AF'},
+              {label:'10yr', val:projections.y10, color:'#5BAD3A'},
+              {label:'20yr', val:projections.y20, color:'#3B9DD2'},
+              {label:'30yr', val:projections.y30, color:'#F5A623'},
+            ].map((p, i) => {
+              const maxVal = projections.y30;
+              return (
+                <div key={p.label} className="hm-forecast-col">
+                  <div className="hm-forecast-val" style={{color:p.color}}>£{Math.round(p.val)}</div>
+                  <div className="hm-forecast-track">
+                    <div className="hm-forecast-bar" style={{
+                      height: mounted ? `${Math.round((p.val/maxVal)*100)}%` : '0%',
+                      background: p.color,
+                      transitionDelay: `${0.5 + i*0.12}s`,
+                    }}/>
+                  </div>
+                  <div className="hm-forecast-label">{p.label}</div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="hm-forecast-note">* Illustrative, based on historical card appreciation rates</p>
+        </div>
+      )}
+
+      {/* ── Badges teaser ── */}
+      <Link to="/badges" className={`hm-panel hm-badges-teaser ${mounted?'hm-in':''}`} style={{animationDelay:'.56s',display:'block',textDecoration:'none'}}>
+        <div className="hm-panel-head">
+          <span>🏆 Badges</span>
+          <span className="hm-panel-link">View all →</span>
+        </div>
+        <div className="hm-badge-chips">
+          {cards.length >= 1   && <span className="hm-badge-chip" style={{'--c':'#F5A623'}}>📷 First scan</span>}
+          {cards.length >= 10  && <span className="hm-badge-chip" style={{'--c':'#4ECDC4'}}>🃏 10 cards</span>}
+          {cards.length >= 50  && <span className="hm-badge-chip" style={{'--c':'#9B59B6'}}>📚 50 cards</span>}
+          {cards.length >= 100 && <span className="hm-badge-chip" style={{'--c':'#E8563A'}}>💯 Century!</span>}
+          {collectionValue >= 50  && <span className="hm-badge-chip" style={{'--c':'#5BAD3A'}}>💰 £50 value</span>}
+          {collectionValue >= 100 && <span className="hm-badge-chip" style={{'--c':'#5BAD3A'}}>💴 £100 value</span>}
+          {cards.length < 1 && <span style={{fontSize:13,color:'var(--muted)',fontWeight:600}}>Scan your first card to start earning badges!</span>}
+        </div>
+        <div className="hm-badge-progress">
+          <div className="hm-badge-prog-fill" style={{
+            width: mounted ? `${Math.min(100,Math.round(([
+              cards.length>=1, cards.length>=10, cards.length>=50, cards.length>=100,
+              cards.length>=500, collectionValue>=10, collectionValue>=50, collectionValue>=100,
+              collectionValue>=500,
+            ].filter(Boolean).length / 30)*100))}%` : '0%'
+          }}/>
+        </div>
+        <div className="hm-badge-prog-label">Keep scanning to unlock more!</div>
       </Link>
 
-      {/* Two-col panels */}
-      <div className="home-grid">
-
-        {/* Top 5 most valuable cards */}
-        <div className="home-panel">
-          <div className="home-panel-header">
-            <h2>💎 Top 5 valuable cards</h2>
-            <Link to="/collection" className="link-sm">View all</Link>
+      {/* ── Wishlist teaser ── */}
+      {wishlist.length > 0 && (
+        <div className={`hm-panel ${mounted?'hm-in':''}`} style={{animationDelay:'.62s'}}>
+          <div className="hm-panel-head">
+            <span>⭐ Wishlist</span>
+            <Link to="/wishlist" className="hm-panel-link">{wishlist.length} cards · £{wishlistTotal.toFixed(0)} →</Link>
           </div>
-          <div className="home-panel-body">
-            {top5Cards.length === 0 ? (
-              <div className="empty-state" style={{padding:'20px 0'}}>
-                Scan cards to see their values
+          <div className="hm-wishlist-scroll">
+            {wishlist.slice(0,8).map(card => (
+              <div key={card.id} className="hm-wish-tile">
+                {card.image_url
+                  ? <img src={card.image_url} alt={card.card_name} className="hm-wish-img"/>
+                  : <div className="hm-wish-placeholder">🎴</div>
+                }
+                <div className="hm-wish-name">{card.card_name}</div>
+                {card.market_price_gbp && <div className="hm-wish-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</div>}
               </div>
-            ) : (
-              top5Cards.map((card, i) => (
-                <div key={card.id} className="wishlist-preview-row">
-                  <div className="top5-rank">#{i + 1}</div>
-                  {card.image_url
-                    ? <img src={card.image_url} alt={card.card_name} className="wishlist-preview-img" />
-                    : <div className="wishlist-preview-img" style={{background:'var(--surface2)',borderRadius:3}}/>
-                  }
-                  <div className="wishlist-preview-info">
-                    <div className="wishlist-preview-name">{card.card_name}</div>
-                    <div className="wishlist-preview-set">{card.set_name} · {card.rarity}</div>
-                  </div>
-                  <span className="wishlist-preview-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</span>
-                </div>
-              ))
-            )}
-            {collectionValue > 0 && (
-              <div style={{paddingTop:10,borderTop:'1px solid var(--border)',marginTop:4,display:'flex',justifyContent:'space-between',fontSize:13}}>
-                <span style={{color:'var(--muted)'}}>Total collection value</span>
-                <strong style={{color:'var(--green)'}}>£{collectionValue.toFixed(2)}</strong>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Wishlist */}
-        <div className="home-panel">
-          <div className="home-panel-header">
-            <h2>⭐ Wishlist</h2>
-            <Link to="/wishlist" className="link-sm">View all</Link>
-          </div>
-          <div className="home-panel-body">
-            {!wishlist.length ? (
-              <div className="empty-state" style={{padding:'20px 0'}}>
-                No wishlist yet — <Link to="/find" className="link-sm">find some cards</Link>
-              </div>
-            ) : (
-              <>
-                {wishlist.slice(0, 5).map(card => (
-                  <div key={card.id} className="wishlist-preview-row">
-                    {card.image_url ? <img src={card.image_url} alt={card.card_name} className="wishlist-preview-img" /> : <div className="wishlist-preview-img" style={{background:'var(--surface2)',borderRadius:3}}/>}
-                    <div className="wishlist-preview-info">
-                      <div className="wishlist-preview-name">{card.card_name}</div>
-                      <div className="wishlist-preview-set">{card.set_name}</div>
-                    </div>
-                    {card.market_price_gbp ? <span className="wishlist-preview-price">£{parseFloat(card.market_price_gbp).toFixed(2)}</span> : <span className="wishlist-preview-price" style={{color:'var(--muted)'}}>—</span>}
-                  </div>
-                ))}
-                {wishlistTotal > 0 && (
-                  <div style={{paddingTop:10,borderTop:'1px solid var(--border)',marginTop:4,display:'flex',justifyContent:'space-between',fontSize:13}}>
-                    <span style={{color:'var(--muted)'}}>Wishlist total</span>
-                    <strong style={{color:'var(--yellow)'}}>£{wishlistTotal.toFixed(2)}</strong>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* Set values */}
-      {setValues.length > 0 && setValues.some(s => s.value > 0) && (
-        <div className="home-panel" style={{marginBottom:20}}>
-          <div className="home-panel-header">
-            <h2>📦 Value by set</h2>
-            <Link to="/collection" className="link-sm">View collection</Link>
-          </div>
-          <div className="home-panel-body">
-            <div className="set-value-list">
-              {setValues.map(s => (
-                <div key={s.setId} className="set-value-row">
-                  <div className="set-value-info">
-                    <div className="set-value-name">{s.set_name}</div>
-                    <div className="set-value-count">{s.count} card{s.count !== 1 ? 's' : ''}</div>
-                  </div>
-                  {s.value > 0 ? (
-                    <div className="set-value-amount">£{s.value.toFixed(2)}</div>
-                  ) : (
-                    <div className="set-value-amount" style={{color:'var(--muted)'}}>No price data</div>
-                  )}
-                </div>
-              ))}
-            </div>
+            ))}
           </div>
         </div>
       )}
-
-      {/* Future value prediction */}
-      {projections && collectionValue > 5 && (
-        <div className="home-panel" style={{marginBottom:20}}>
-          <div className="home-panel-header">
-            <h2>📈 Predicted future value</h2>
-            <span style={{fontSize:12,color:'var(--muted)'}}>Based on historical Pokémon card appreciation</span>
-          </div>
-          <div className="home-panel-body">
-            <div className="prediction-note">
-              ⚡ Pokémon cards have historically increased in value over time — especially holos and vintage sets. These are estimates based on average annual appreciation rates. The better condition you keep them in, the more they could be worth!
-            </div>
-            <div className="prediction-grid">
-              <div className="prediction-card">
-                <div className="prediction-year">Today</div>
-                <div className="prediction-value">£{collectionValue.toFixed(0)}</div>
-                <div className="prediction-label">Current value</div>
-              </div>
-              <div className="prediction-arrow">→</div>
-              <div className="prediction-card prediction-card--future">
-                <div className="prediction-year">10 years</div>
-                <div className="prediction-value">£{projections.y10.toFixed(0)}</div>
-                <div className="prediction-label prediction-gain">+£{(projections.y10 - collectionValue).toFixed(0)}</div>
-              </div>
-              <div className="prediction-arrow">→</div>
-              <div className="prediction-card prediction-card--future">
-                <div className="prediction-year">20 years</div>
-                <div className="prediction-value">£{projections.y20.toFixed(0)}</div>
-                <div className="prediction-label prediction-gain">+£{(projections.y20 - collectionValue).toFixed(0)}</div>
-              </div>
-              <div className="prediction-arrow">→</div>
-              <div className="prediction-card prediction-card--gold">
-                <div className="prediction-year">30 years</div>
-                <div className="prediction-value">£{projections.y30.toFixed(0)}</div>
-                <div className="prediction-label prediction-gain">+£{(projections.y30 - collectionValue).toFixed(0)}</div>
-              </div>
-            </div>
-            <div style={{fontSize:11,color:'var(--muted)',marginTop:12,lineHeight:1.6}}>
-              * Estimates only. Based on ~{(projections.rate * 100).toFixed(1)}% avg. annual rate for your collection mix. Past performance doesn't guarantee future returns. Keep cards in sleeves and binders for best preservation!
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recently added */}
-      {cards.length > 0 && (
-        <div className="home-panel" style={{marginBottom:20}}>
-          <div className="home-panel-header">
-            <h2>🃏 Recently added</h2>
-            <Link to="/collection" className="link-sm">View all</Link>
-          </div>
-          <div className="home-panel-body">
-            <div className="recent-cards">
-              {cards.slice(0, 10).map(card => (
-                <div key={card.id} className="recent-card-tile">
-                  {card.image_url ? <img src={card.image_url} alt={card.card_name} /> : <div style={{width:80,height:112,background:'var(--surface2)',borderRadius:'var(--radius-sm)',border:'1px solid var(--border)'}}/>}
-                  <span>{card.card_name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pokédex teaser */}
-      <Link to="/my-pokedex" style={{display:'block',textDecoration:'none',marginBottom:20}}>
-        <div className="home-panel" style={{cursor:'pointer'}}>
-          <div className="home-panel-header">
-            <h2>📖 My Pokédex</h2>
-            <span className="link-sm">View all →</span>
-          </div>
-          <div className="home-panel-body">
-            <div style={{fontSize:13,color:'var(--muted)',marginBottom:8}}>All 1025 Pokémon — see which ones you have cards for and which are still missing.</div>
-            <div className="dex-completion-bar"><div className="dex-completion-fill" style={{width:'2%'}}/></div>
-            <div style={{fontSize:12,color:'var(--muted)',marginTop:4}}>Keep scanning to fill it up! ⚡</div>
-          </div>
-        </div>
-      </Link>
 
     </div>
   );

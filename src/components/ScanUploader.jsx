@@ -324,190 +324,208 @@ function ConfirmCardLarge({ result: r, idx, onToggle, onFix }) {
   );
 }
 
-// ─── Individual scanner ────────────────────────────────────────
+// ─── Individual scanner — single card only ────────────────────
 function IndividualScanner({ onComplete, user, addCard, myCards, onBack }) {
-  const MAX = 9;
   const fileInputRef   = useRef(null);
   const cameraInputRef = useRef(null);
-  const [slots, setSlots]             = useState(Array(MAX).fill(null));
-  const [scanning, setScanning]       = useState(false);
-  const [confirmed, setConfirmed]     = useState(false);
-  const [results, setResults]         = useState([]);
-  const [saving, setSaving]           = useState(false);
-  const [savedCount, setSavedCount]   = useState(0);
-  const [fixing, setFixing]           = useState(null);
-  const [currentDuplicate, setCurrentDuplicate] = useState(null);
-  const [saveQueue, setSaveQueue]     = useState([]);
+  const [photo, setPhoto]           = useState(null);   // { file, preview }
+  const [scanning, setScanning]     = useState(false);
+  const [result, setResult]         = useState(null);   // resolved card result
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
+  const [fixing, setFixing]         = useState(false);
+  const [rawRead, setRawRead]       = useState('');     // what Claude read
 
   const myCardMap = Object.fromEntries(myCards.map(c => [c.card_id, c]));
-  const filledSlots = slots.filter(Boolean);
 
-  const handleFiles = useCallback((files) => {
-    const imgs = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, MAX);
-    const newSlots = [...slots];
-    imgs.forEach(file => { const empty = newSlots.findIndex(s=>!s); if(empty===-1)return; newSlots[empty]={file,preview:URL.createObjectURL(file)}; });
-    setSlots(newSlots); setResults([]); setConfirmed(false);
-  }, [slots]);
-
-  const removeSlot = (idx) => {
-    const s=[...slots]; if(s[idx]?.preview)URL.revokeObjectURL(s[idx].preview); s[idx]=null;
-    const filled=s.filter(Boolean); setSlots([...filled,...Array(MAX-filled.length).fill(null)]);
+  const handleFile = (file) => {
+    if (!file?.type.startsWith('image/')) return;
+    setPhoto({ file, preview: URL.createObjectURL(file) });
+    setResult(null); setSaved(false); setFixing(false); setRawRead('');
   };
 
-  const scanAll = async () => {
+  const scanCard = async (file) => {
     setScanning(true);
-    const filled = slots.filter(Boolean);
-    // Compress and convert all images in parallel
-    const images = await Promise.all(filled.map(s => fileToBase64(s.file)));
-
-    let identified = [];
     try {
+      const { base64, mediaType } = await fileToBase64(file);
       const res = await fetch('/.netlify/functions/identify-cards', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ images }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: { base64, mediaType } }),
       });
-      identified = (await res.json()).results || [];
-    } catch(err){ console.error(err); setScanning(false); return; }
+      const data = await res.json();
+      const identified = data.result || data.results?.[0] || {};
+      setRawRead(identified.name || '');
 
-    const resolved = await resolveCards(identified);
-    setResults(resolved.map((r,i) => ({
-      ...r,
-      preview:      filled[i]?.preview,
-      file:         filled[i]?.file,
-      originalName: identified[i]?.name || '',
-      include:      !r.error && r.resolved,
-      duplicate:    r.resolved && myCardMap[r.tcgCard?.id] ? myCardMap[r.tcgCard.id] : null,
-    })));
-    setConfirmed(true);
+      if (identified.error === 'not_a_pokemon_card') {
+        setResult({ resolved: false, error: 'not_a_pokemon_card' });
+        setScanning(false); return;
+      }
+
+      const [resolved] = await resolveCards([identified]);
+      setResult({ ...resolved, duplicate: resolved.tcgCard && myCardMap[resolved.tcgCard?.id] ? myCardMap[resolved.tcgCard.id] : null });
+    } catch (err) {
+      console.error(err);
+      setResult({ resolved: false, error: 'network_error' });
+    }
     setScanning(false);
   };
 
-  const applyFix = (idx, tcgCard) => {
-    setResults(r => r.map((x,i) => i===idx ? {
-      ...x, resolved:true, tcgCard, include:true,
-      duplicate: myCardMap[tcgCard.id] || null,
-    } : x));
-    setFixing(null);
+  // Auto-scan as soon as a photo is selected
+  const handleFileWithScan = (file) => {
+    if (!file?.type.startsWith('image/')) return;
+    const preview = URL.createObjectURL(file);
+    setPhoto({ file, preview });
+    setResult(null); setSaved(false); setFixing(false);
+    scanCard(file);
   };
 
-  const inititateSave = () => {
-    const toSave = results.filter(r => r.include && r.resolved && r.tcgCard);
-    const firstDupe = toSave.findIndex(r => r.duplicate);
-    if (firstDupe !== -1) {
-      setSaveQueue(toSave);
-      setCurrentDuplicate({ idx: firstDupe, items: toSave });
-    } else {
-      doSave(toSave);
-    }
+  const applyFix = (tcgCard) => {
+    setResult(r => ({ ...r, resolved: true, tcgCard, duplicate: myCardMap[tcgCard.id] || null }));
+    setFixing(false);
   };
 
-  const handleDuplicateResponse = async (addAnyway) => {
-    const queue = [...saveQueue];
-    if (!addAnyway) queue.splice(currentDuplicate.idx, 1);
-    const nextDupe = queue.findIndex((r, i) => i >= currentDuplicate.idx && r.duplicate);
-    if (nextDupe === -1) { setCurrentDuplicate(null); setSaveQueue([]); await doSave(queue); }
-    else { setSaveQueue(queue); setCurrentDuplicate({ idx: nextDupe, items: queue }); }
-  };
-
-  const doSave = async (items) => {
+  const saveCard = async () => {
+    if (!result?.tcgCard) return;
     setSaving(true);
-    let count = 0;
-    // Upload all images in parallel, then save all cards in parallel
-    const withUrls = await Promise.all(items.map(async r => {
+    try {
       let scanImageUrl = null;
-      if (r.file) {
-        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
-        const { data: up } = await supabase.storage.from('card-scans').upload(path, r.file, { upsert:true });
+      if (photo?.file) {
+        const path = `${user.id}/single-${Date.now()}.jpg`;
+        const { data: up } = await supabase.storage.from('card-scans').upload(path, photo.file, { upsert: true });
         if (up) { const { data: url } = supabase.storage.from('card-scans').getPublicUrl(path); scanImageUrl = url?.publicUrl; }
       }
-      return { ...r, scanImageUrl };
-    }));
-
-    await Promise.allSettled(withUrls.map(async r => {
-      try {
-        await addCard({ card_id:r.tcgCard.id, card_name:r.tcgCard.name, set_id:r.tcgCard.set_id, set_name:r.tcgCard.set_name, set_series:r.tcgCard.set_series, card_number:r.tcgCard.card_number, rarity:r.tcgCard.rarity, image_url:r.tcgCard.image_small, scan_image_url:r.scanImageUrl, market_price_gbp:r.tcgCard.prices_gbp?.market||null });
-        count++;
-      } catch(err){ console.error(err); }
-    }));
-
-    setSavedCount(count); setSaving(false);
-    setTimeout(()=>{ setSlots(Array(MAX).fill(null)); setResults([]); setConfirmed(false); setSavedCount(0); onComplete?.(); }, 2000);
+      await addCard({
+        card_id: result.tcgCard.id, card_name: result.tcgCard.name,
+        set_id: result.tcgCard.set_id, set_name: result.tcgCard.set_name,
+        set_series: result.tcgCard.set_series, card_number: result.tcgCard.card_number,
+        rarity: result.tcgCard.rarity, image_url: result.tcgCard.image_small,
+        scan_image_url: scanImageUrl, market_price_gbp: result.tcgCard.prices_gbp?.market || null,
+      });
+      setSaved(true);
+    } catch (err) { console.error(err); }
+    setSaving(false);
   };
 
-  if (savedCount > 0) return <div className="scan-success"><div className="success-icon">✓</div><h2>{savedCount} card{savedCount!==1?'s':''} added!</h2></div>;
+  const scanAnother = () => {
+    setPhoto(null); setResult(null); setSaved(false); setFixing(false); setRawRead('');
+  };
 
-  if (currentDuplicate) {
-    const item = saveQueue[currentDuplicate.idx];
-    return <DuplicateWarning card={item.tcgCard} existingQty={item.duplicate?.quantity||1} onAddAnyway={()=>handleDuplicateResponse(true)} onSkip={()=>handleDuplicateResponse(false)} />;
-  }
-
-  if (fixing !== null) {
-    return (
-      <div>
-        <h3 style={{marginBottom:8,color:'var(--yellow)'}}>Fix card #{fixing+1}</h3>
-        <p style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>Claude read: "<strong style={{color:'var(--text)'}}>{results[fixing]?.originalName}</strong>"</p>
-        <ManualPicker initialName={results[fixing]?.originalName||''} onSelect={c=>applyFix(fixing,c)} onCancel={()=>setFixing(null)} />
-      </div>
-    );
-  }
+  if (fixing) return (
+    <div>
+      <button className="btn btn-ghost btn-sm" onClick={() => setFixing(false)} style={{marginBottom:12}}>← Back</button>
+      <h3 style={{marginBottom:8,color:'var(--yellow)'}}>Find the right card</h3>
+      {rawRead && <p style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>Claude read: "<strong style={{color:'var(--text)'}}>{rawRead}</strong>"</p>}
+      <ManualPicker initialName={rawRead} onSelect={applyFix} onCancel={() => setFixing(false)} />
+    </div>
+  );
 
   return (
     <div>
       <button className="btn btn-ghost btn-sm" onClick={onBack} style={{marginBottom:16}}>← Back</button>
 
-      <div className="single-card-camera-bar">
-        <button className="btn btn-primary" onClick={()=>cameraInputRef.current?.click()} style={{flex:1,justifyContent:'center'}}>📷 Take photo of a card</button>
-        <button className="btn btn-secondary" onClick={()=>fileInputRef.current?.click()} style={{flex:1,justifyContent:'center'}}>🖼 Select from gallery</button>
-      </div>
+      {/* Photo area */}
+      {!photo ? (
+        <div className="single-drop-zone">
+          <span style={{fontSize:52}}>🃏</span>
+          <p className="single-drop-title">Take a photo of one card</p>
+          <p className="single-drop-hint">Place the card on a flat surface in good lighting. The scanner reads it automatically.</p>
+          <div className="single-drop-btns">
+            <button className="btn btn-primary" onClick={() => cameraInputRef.current?.click()}>📷 Camera</button>
+            <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}>🖼 Gallery</button>
+          </div>
+        </div>
+      ) : (
+        <div className="single-scan-layout">
+          {/* Card photo */}
+          <div className="single-photo-wrap">
+            <img src={photo.preview} alt="Card" className="single-photo" />
+            {scanning && (
+              <div className="single-scanning-overlay">
+                <div className="single-scan-beam"/>
+                <div className="single-scanning-label">⚡ Reading card...</div>
+              </div>
+            )}
+          </div>
 
-      <input ref={fileInputRef}   type="file" accept="image/*" multiple              style={{display:'none'}} onChange={e=>handleFiles(e.target.files)} />
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>handleFiles(e.target.files)} />
+          {/* Result */}
+          {scanning && (
+            <div className="single-result-loading">
+              <span style={{fontSize:28,display:'block',marginBottom:8,animation:'spin 1s linear infinite'}}>⚡</span>
+              Identifying card...
+            </div>
+          )}
 
-      {filledSlots.length > 0 && !confirmed && (
-        <div className="card-grid-upload" style={{marginTop:16}} onDrop={e=>{e.preventDefault();handleFiles(e.dataTransfer.files);}} onDragOver={e=>e.preventDefault()}>
-          {slots.map((slot,idx)=>(
-            <div key={idx} className={`upload-slot ${slot?'filled':'empty'}`} onClick={()=>!slot&&fileInputRef.current?.click()}>
-              {slot?(
-                <><img src={slot.preview} alt={`card ${idx+1}`} className="slot-preview" /><button className="remove-slot" onClick={e=>{e.stopPropagation();removeSlot(idx);}}>×</button></>
-              ):(
-                <div className="slot-placeholder"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg><span style={{fontSize:10}}>Add</span></div>
+          {!scanning && result && (
+            <div className="single-result">
+              {result.error === 'not_a_pokemon_card' ? (
+                <div className="single-result-error">
+                  <div style={{fontSize:32,marginBottom:8}}>🤔</div>
+                  <div style={{fontWeight:700,marginBottom:4}}>Doesn't look like a Pokémon card</div>
+                  <div style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>Try taking a clearer photo with the card flat and well-lit.</div>
+                  <button className="btn btn-secondary btn-sm" onClick={scanAnother}>Try again</button>
+                </div>
+              ) : !result.resolved ? (
+                <div className="single-result-notfound">
+                  <div style={{fontSize:28,marginBottom:8}}>❓</div>
+                  <div style={{fontWeight:700,marginBottom:4}}>
+                    {rawRead ? `Couldn't find "${rawRead}" in the database` : "Couldn't identify this card"}
+                  </div>
+                  <div style={{fontSize:13,color:'var(--muted)',marginBottom:12}}>
+                    Try searching by card number (printed bottom-right of card).
+                  </div>
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    <button className="btn btn-primary btn-sm" onClick={() => setFixing(true)}>🔍 Search manually</button>
+                    <button className="btn btn-secondary btn-sm" onClick={scanAnother}>📷 Retake photo</button>
+                  </div>
+                </div>
+              ) : saved ? (
+                <div className="single-result-saved">
+                  <div className="single-saved-icon">✓</div>
+                  <div style={{fontWeight:800,fontSize:16,color:'var(--green)',marginBottom:4}}>Added to collection!</div>
+                  <div style={{fontWeight:700,fontSize:14,marginBottom:2}}>{result.tcgCard.name}</div>
+                  <div style={{fontSize:12,color:'var(--muted)'}}>{result.tcgCard.set_name} #{result.tcgCard.card_number}</div>
+                  <div style={{display:'flex',gap:8,marginTop:14}}>
+                    <button className="btn btn-primary" onClick={scanAnother}>📷 Scan another</button>
+                    <button className="btn btn-secondary btn-sm" onClick={onComplete}>Done</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="single-result-match">
+                  <img src={result.tcgCard.image_small} alt={result.tcgCard.name} className="single-result-img" />
+                  <div className="single-result-info">
+                    <div className="single-result-name">{result.tcgCard.name}</div>
+                    <div className="single-result-set">{result.tcgCard.set_name}</div>
+                    <div className="single-result-num">#{result.tcgCard.card_number}</div>
+                    {result.tcgCard.rarity && <div className="single-result-rarity">{result.tcgCard.rarity}</div>}
+                    {result.tcgCard.prices_gbp?.market && (
+                      <div className="single-result-price">£{result.tcgCard.prices_gbp.market}</div>
+                    )}
+                    {result.duplicate && (
+                      <div className="single-result-dupe">⚠ You already own this card</div>
+                    )}
+                    <div className="single-result-actions">
+                      <button className="btn btn-primary" onClick={saveCard} disabled={saving}>
+                        {saving ? 'Saving...' : result.duplicate ? '+ Add another copy' : '+ Add to collection'}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setFixing(true)}>✏ Wrong card?</button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-          ))}
+          )}
+
+          {/* Retake / new photo */}
+          {!scanning && result && !saved && (
+            <button className="btn btn-ghost btn-sm" onClick={scanAnother} style={{marginTop:8}}>
+              📷 Scan a different card
+            </button>
+          )}
         </div>
       )}
 
-      {filledSlots.length > 0 && !confirmed && (
-        <div className="scan-controls" style={{marginTop:12}}>
-          <div className="scan-count">{filledSlots.length}/{MAX}</div>
-          <button className="btn btn-primary" onClick={scanAll} disabled={scanning}>
-            {scanning?'⚡ Scanning...':`⚡ Identify ${filledSlots.length} card${filledSlots.length!==1?'s':''}`}
-          </button>
-        </div>
-      )}
-
-      {/* Large confirm view */}
-      {confirmed && results.length > 0 && (
-        <div style={{marginTop:20}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
-            <h3 style={{color:'var(--yellow)'}}>Confirm {results.length} card{results.length!==1?'s':''}</h3>
-            <span style={{fontSize:13,color:'var(--muted)'}}>{results.filter(r=>!r.resolved).length > 0 && `${results.filter(r=>!r.resolved).length} need fixing`}</span>
-          </div>
-          <div className="confirm-grid-large">
-            {results.map((r,idx)=>(
-              <ConfirmCardLarge
-                key={idx} result={r} idx={idx}
-                onToggle={val=>setResults(res=>res.map((x,i)=>i===idx?{...x,include:val}:x))}
-                onFix={()=>setFixing(idx)}
-              />
-            ))}
-          </div>
-          <button className="btn btn-primary btn-full" onClick={inititateSave}
-            disabled={saving||results.filter(r=>r.include&&r.resolved).length===0} style={{marginTop:16}}>
-            {saving?'Saving...':`Add ${results.filter(r=>r.include&&r.resolved).length} card${results.filter(r=>r.include&&r.resolved).length!==1?'s':''} to collection`}
-          </button>
-        </div>
-      )}
+      <input ref={fileInputRef}   type="file" accept="image/*"                       style={{display:'none'}} onChange={e=>handleFileWithScan(e.target.files[0])} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{display:'none'}} onChange={e=>handleFileWithScan(e.target.files[0])} />
     </div>
   );
 }

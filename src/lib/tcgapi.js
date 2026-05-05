@@ -14,54 +14,76 @@ export function formatGBP(usd) {
 
 const headers = {};
 
-// ─── Improved card finder with multiple fallback strategies ──
-export async function findCard({ name, setName, cardNumber }) {
+// ─── Improved card finder — matches by number+name+set, not just latest ──
+export async function findCard({ name, setName, cardNumber, year }) {
   if (!name) return null;
 
-  // Clean the name - remove special characters, extra spaces
-  const cleanName = name.trim().replace(/[éè]/g, 'e').replace(/[^\w\s'-]/g, '').trim();
+  const cleanName = name.trim()
+    .replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a').replace(/[ùû]/g, 'u')
+    .replace(/[^\w\s'.\-♂♀é]/g, '').trim();
 
-  // Strategy 1: exact name + card number
+  // Strategy 1: card number + name (most precise — number is printed on the card)
   if (cardNumber) {
-    const num = cardNumber.replace(/^0+/, '').split('/')[0];
-    const result = await tcgSearch(`name:"${cleanName}" number:${num}`);
-    if (result) return result;
-  }
-
-  // Strategy 2: exact name match
-  const result2 = await tcgSearch(`name:"${cleanName}"`);
-  if (result2) {
-    // If we have a set name, try to match it
-    if (setName) {
-      const setNorm = setName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      // Try to find best set match from multiple results
-      const allResults = await tcgSearchAll(`name:"${cleanName}"`, 20);
-      const setMatch = allResults.find(c => {
-        const cn = (c.set?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-        return cn.includes(setNorm) || setNorm.includes(cn) || levenshtein(cn, setNorm) < 4;
-      });
-      if (setMatch) return normaliseCard(setMatch);
+    const num = cardNumber.replace(/^0+/, '').split('/')[0].trim();
+    const all = await tcgSearchAll(`name:"${cleanName}" number:${num}`, 20);
+    if (all.length === 1) return normaliseCard(all[0]);
+    if (all.length > 1) {
+      // Multiple hits — use year to pick the right set
+      if (year) {
+        const yearMatch = all.find(c => c.set?.releaseDate?.startsWith(year));
+        if (yearMatch) return normaliseCard(yearMatch);
+      }
+      // Use set name to narrow down
+      if (setName) {
+        const setNorm = setName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const setMatch = all.find(c => {
+          const cn = (c.set?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          return cn.includes(setNorm) || setNorm.includes(cn);
+        });
+        if (setMatch) return normaliseCard(setMatch);
+      }
+      // Return oldest matching card (vintage collectors are scanning older cards)
+      const sorted = all.sort((a, b) => (a.set?.releaseDate || '').localeCompare(b.set?.releaseDate || ''));
+      return normaliseCard(year ? sorted[0] : all[0]);
     }
-    return result2;
   }
 
-  // Strategy 3: partial name (first word only, for names like "Blastoise ex")
+  // Strategy 2: name + set name
+  if (setName) {
+    const setNorm = setName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const all = await tcgSearchAll(`name:"${cleanName}"`, 50);
+    const setMatch = all.find(c => {
+      const cn = (c.set?.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      return cn.includes(setNorm) || setNorm.includes(cn) || levenshtein(cn, setNorm) < 3;
+    });
+    if (setMatch) return normaliseCard(setMatch);
+  }
+
+  // Strategy 3: name + year
+  if (year) {
+    const all = await tcgSearchAll(`name:"${cleanName}"`, 50);
+    const yearMatch = all.find(c => c.set?.releaseDate?.startsWith(year));
+    if (yearMatch) return normaliseCard(yearMatch);
+  }
+
+  // Strategy 4: exact name, ordered by release date ascending (get older cards first for vintage)
+  const result = await tcgSearch(`name:"${cleanName}"`, year ? 'asc' : 'desc');
+  if (result) return result;
+
+  // Strategy 5: first word of name (handles "Charizard ex" → search "Charizard")
   const firstWord = cleanName.split(' ')[0];
   if (firstWord.length > 3 && firstWord !== cleanName) {
-    const result3 = await tcgSearch(`name:"${firstWord}"`);
-    if (result3) return result3;
+    const r = await tcgSearch(`name:"${firstWord}"`, 'desc');
+    if (r) return r;
   }
 
-  // Strategy 4: fuzzy - just the name without quotes
-  const result4 = await tcgSearch(`name:${cleanName}`);
-  if (result4) return result4;
-
-  return null;
+  // Strategy 6: unquoted fuzzy
+  return await tcgSearch(`name:${cleanName}`, 'desc');
 }
 
-async function tcgSearch(query) {
+async function tcgSearch(query, order = 'desc') {
   try {
-    const url = `${BASE}/cards?q=${encodeURIComponent(query)}&pageSize=1&orderBy=-set.releaseDate`;
+    const url = `${BASE}/cards?q=${encodeURIComponent(query)}&pageSize=1&orderBy=${order === 'asc' ? 'set.releaseDate' : '-set.releaseDate'}`;
     const res = await fetch(url, { headers });
     if (!res.ok) return null;
     const data = await res.json();
@@ -139,12 +161,13 @@ export async function getCardsInSet(setId, page = 1, pageSize = 250) {
 export async function resolveCards(identifiedCards) {
   const resolved = await Promise.allSettled(
     identifiedCards.map(async (card) => {
-      if (card.error) return { ...card, resolved: false };
+      if (card.error && card.error !== 'unclear') return { ...card, resolved: false };
       try {
         const tcgCard = await findCard({
-          name: card.name,
-          setName: card.set_name,
+          name:       card.name,
+          setName:    card.set_name,
           cardNumber: card.card_number,
+          year:       card.year,
         });
         if (!tcgCard) return { ...card, resolved: false, tcgCard: null };
         return { ...card, resolved: true, tcgCard };
