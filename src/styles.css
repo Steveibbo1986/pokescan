@@ -2359,3 +2359,19 @@ img { max-width: 100%; display: block; }
 .shop-item-status--equipped { background: rgba(245,166,35,.15); color: var(--yellow-dark); border: 1px solid rgba(245,166,35,.3); }
 .shop-item-price            { font-size: 13px; font-weight: 800; color: var(--yellow); }
 .shop-item-price--locked    { color: var(--muted); }
+
+/* ─── International card result flag ────────────────────────── */
+.lang-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 100px;
+  margin-bottom: 6px;
+}
+.lang-badge--jp { background: rgba(188,0,45,.1);  color: #bc002d; border: 1px solid rgba(188,0,45,.25); }
+.lang-badge--zh { background: rgba(222,41,16,.1); color: #de2910; border: 1px solid rgba(222,41,16,.25); }
+.lang-badge--ko { background: rgba(0,82,174,.1);  color: #0052ae; border: 1px solid rgba(0,82,174,.25); }
+.lang-badge--fr { background: rgba(0,85,164,.1);  color: #003189; border: 1px solid rgba(0,85,164,.25); }
+.lang-badge--de { background: rgba(0,0,0,.07);    color: #1a1d23; border: 1px solid rgba(0,0,0,.18); }
+.lang-badge--es { background: rgba(170,0,0,.1);   color: #aa0000; border: 1px solid rgba(170,0,0,.25); }
+.lang-badge--it { background: rgba(0,140,69,.1);  color: #00803c; border: 1px solid rgba(0,140,69,.25); }
+.lang-badge--intl { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+.intl-no-price { font-size:11px; color:var(--muted); font-weight:600; margin-top:4px; }

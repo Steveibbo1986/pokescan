@@ -3,15 +3,18 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { resolveCards, searchPokemonCards } from '../lib/tcgapi';
 import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
+import { useCoins } from '../hooks/useCoins';
 import { supabase } from '../lib/supabase';
+import LanguageBadge from './LanguageBadge';
 
 // How many consecutive frames the card must fill the guide before we capture
 const HOLD_FRAMES   = 18;   // ~0.6s at 30fps — steady but not too slow
 const FILL_RATIO    = 0.72; // card must fill at least 72% of guide width
 
 export default function LiveScanner({ onComplete, onBack }) {
-  const { user }    = useAuth();
-  const { addCard } = useCollection();
+  const { user }               = useAuth();
+  const { addCard, cards: myCards } = useCollection();
+  const { awardScanCoins, checkMilestones } = useCoins();
 
   const videoRef      = useRef(null);
   const canvasRef     = useRef(null);
@@ -183,7 +186,10 @@ export default function LiveScanner({ onComplete, onBack }) {
       }
 
       const [resolved] = await resolveCards([raw]);
-      setResult(resolved);
+      const duplicate = resolved.tcgCard
+        ? myCards.find(c => c.card_id === resolved.tcgCard.id) || null
+        : null;
+      setResult({ ...resolved, duplicate });
       setPhase('confirming');
     } catch (err) {
       console.error(err);
@@ -206,7 +212,8 @@ export default function LiveScanner({ onComplete, onBack }) {
   };
 
   const applyFix = (tcgCard) => {
-    setResult(r => ({ ...r, resolved: true, tcgCard }));
+    const duplicate = myCards.find(c => c.card_id === tcgCard.id) || null;
+    setResult(r => ({ ...r, resolved: true, tcgCard, duplicate }));
     setFixing(false);
   };
 
@@ -228,6 +235,8 @@ export default function LiveScanner({ onComplete, onBack }) {
         rarity: result.tcgCard.rarity, image_url: result.tcgCard.image_small,
         scan_image_url: scanImageUrl, market_price_gbp: result.tcgCard.prices_gbp?.market || null,
       });
+      await awardScanCoins(result.tcgCard.rarity, result.tcgCard.name);
+      await checkMilestones(myCards.length + 1);
       setSaved(true);
     } catch (err) { console.error(err); }
     setSaving(false);
@@ -372,12 +381,19 @@ export default function LiveScanner({ onComplete, onBack }) {
                   <img src={result.tcgCard.image_small} alt={result.tcgCard.name} className="ls-result-img" />
                 )}
                 <div className="ls-result-info">
+                  <LanguageBadge language={identified?.language} />
                   <div className="ls-result-name">{result.tcgCard.name}</div>
                   <div className="ls-result-set">{result.tcgCard.set_name}</div>
                   <div className="ls-result-num">#{result.tcgCard.card_number}</div>
                   {result.tcgCard.rarity && <div className="ls-result-rarity">{result.tcgCard.rarity}</div>}
-                  {result.tcgCard.prices_gbp?.market && (
-                    <div className="ls-result-price">£{result.tcgCard.prices_gbp.market}</div>
+                  {result.tcgCard.prices_gbp?.market
+                    ? <div className="ls-result-price">£{result.tcgCard.prices_gbp.market}</div>
+                    : result.tcgCard.is_international
+                      ? <div className="intl-no-price">Price data not available for this language variant</div>
+                      : null
+                  }
+                  {result.duplicate && (
+                    <div className="single-result-dupe">⚠ You already own this card</div>
                   )}
                 </div>
               </div>
@@ -386,7 +402,7 @@ export default function LiveScanner({ onComplete, onBack }) {
                 <button className="btn btn-secondary btn-sm" onClick={retake}>📷 Scan again</button>
               </div>
               <button className="btn btn-primary btn-full" onClick={saveCard} disabled={saving} style={{marginTop:12}}>
-                {saving ? 'Saving...' : '+ Add to collection'}
+                {saving ? 'Saving...' : result.duplicate ? '+ Add another copy' : '+ Add to collection'}
               </button>
             </>
           )}

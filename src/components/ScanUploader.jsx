@@ -3,19 +3,22 @@ import { useState, useRef, useCallback } from 'react';
 import { resolveCards, searchPokemonCards } from '../lib/tcgapi';
 import { useAuth } from '../hooks/useAuth';
 import { useCollection } from '../hooks/useCollection';
+import { useCoins } from '../hooks/useCoins';
 import { supabase, addToWishlist } from '../lib/supabase';
+import LanguageBadge from './LanguageBadge';
 
 export default function ScanUploader({ onComplete }) {
   const { user }          = useAuth();
   const { addCard, cards: myCards } = useCollection();
+  const { awardScanCoins, checkMilestones } = useCoins();
   const [mode, setMode]   = useState('choose');
 
   return (
     <div className="scan-uploader">
       {mode === 'choose'     && <ScanModeChooser onChoose={setMode} />}
-      {mode === 'grid'       && <GridScanner       onComplete={onComplete} user={user} addCard={addCard} myCards={myCards} onBack={() => setMode('choose')} />}
-      {mode === 'individual' && <IndividualScanner onComplete={onComplete} user={user} addCard={addCard} myCards={myCards} onBack={() => setMode('choose')} />}
-      {mode === 'number'     && <NumberSearch      onComplete={onComplete} user={user} addCard={addCard} myCards={myCards} onBack={() => setMode('choose')} />}
+      {mode === 'grid'       && <GridScanner       onComplete={onComplete} user={user} addCard={addCard} myCards={myCards} awardScanCoins={awardScanCoins} checkMilestones={checkMilestones} cardCount={myCards.length} onBack={() => setMode('choose')} />}
+      {mode === 'individual' && <IndividualScanner onComplete={onComplete} user={user} addCard={addCard} myCards={myCards} awardScanCoins={awardScanCoins} checkMilestones={checkMilestones} cardCount={myCards.length} onBack={() => setMode('choose')} />}
+      {mode === 'number'     && <NumberSearch      onComplete={onComplete} user={user} addCard={addCard} myCards={myCards} awardScanCoins={awardScanCoins} checkMilestones={checkMilestones} cardCount={myCards.length} onBack={() => setMode('choose')} />}
     </div>
   );
 }
@@ -69,7 +72,7 @@ function DuplicateWarning({ card, existingQty, onAddAnyway, onSkip }) {
 }
 
 // ─── Grid scanner ─────────────────────────────────────────────
-function GridScanner({ onComplete, user, addCard, myCards, onBack }) {
+function GridScanner({ onComplete, user, addCard, myCards, awardScanCoins, checkMilestones, cardCount, onBack }) {
   const fileRef   = useRef(null);
   const cameraRef = useRef(null);
   const [photo, setPhoto]           = useState(null);
@@ -157,10 +160,12 @@ function GridScanner({ onComplete, user, addCard, myCards, onBack }) {
     await Promise.allSettled(items.map(async r => {
       try {
         await addCard({ card_id: r.tcgCard.id, card_name: r.tcgCard.name, set_id: r.tcgCard.set_id, set_name: r.tcgCard.set_name, set_series: r.tcgCard.set_series, card_number: r.tcgCard.card_number, rarity: r.tcgCard.rarity, image_url: r.tcgCard.image_small, scan_image_url: scanImageUrl, market_price_gbp: r.tcgCard.prices_gbp?.market || null });
+        await awardScanCoins?.(r.tcgCard.rarity, r.tcgCard.name);
         count++;
       } catch (err) { console.error(err); }
     }));
 
+    await checkMilestones?.(cardCount + count);
     setSavedCount(count);
     setSaving(false);
     setTimeout(() => onComplete?.(), 2000);
@@ -325,7 +330,7 @@ function ConfirmCardLarge({ result: r, idx, onToggle, onFix }) {
 }
 
 // ─── Individual scanner — single card only ────────────────────
-function IndividualScanner({ onComplete, user, addCard, myCards, onBack }) {
+function IndividualScanner({ onComplete, user, addCard, myCards, awardScanCoins, checkMilestones, cardCount, onBack }) {
   const fileInputRef   = useRef(null);
   const cameraInputRef = useRef(null);
   const [photo, setPhoto]           = useState(null);   // { file, preview }
@@ -401,6 +406,8 @@ function IndividualScanner({ onComplete, user, addCard, myCards, onBack }) {
         rarity: result.tcgCard.rarity, image_url: result.tcgCard.image_small,
         scan_image_url: scanImageUrl, market_price_gbp: result.tcgCard.prices_gbp?.market || null,
       });
+      await awardScanCoins?.(result.tcgCard.rarity, result.tcgCard.name);
+      await checkMilestones?.(cardCount + 1);
       setSaved(true);
     } catch (err) { console.error(err); }
     setSaving(false);
@@ -493,13 +500,17 @@ function IndividualScanner({ onComplete, user, addCard, myCards, onBack }) {
                 <div className="single-result-match">
                   <img src={result.tcgCard.image_small} alt={result.tcgCard.name} className="single-result-img" />
                   <div className="single-result-info">
+                    <LanguageBadge language={result.language} />
                     <div className="single-result-name">{result.tcgCard.name}</div>
                     <div className="single-result-set">{result.tcgCard.set_name}</div>
                     <div className="single-result-num">#{result.tcgCard.card_number}</div>
                     {result.tcgCard.rarity && <div className="single-result-rarity">{result.tcgCard.rarity}</div>}
-                    {result.tcgCard.prices_gbp?.market && (
-                      <div className="single-result-price">£{result.tcgCard.prices_gbp.market}</div>
-                    )}
+                    {result.tcgCard.prices_gbp?.market
+                      ? <div className="single-result-price">£{result.tcgCard.prices_gbp.market}</div>
+                      : result.tcgCard.is_international
+                        ? <div className="intl-no-price">Price data not available for this language</div>
+                        : null
+                    }
                     {result.duplicate && (
                       <div className="single-result-dupe">⚠ You already own this card</div>
                     )}
@@ -531,7 +542,7 @@ function IndividualScanner({ onComplete, user, addCard, myCards, onBack }) {
 }
 
 // ─── Number search ─────────────────────────────────────────────
-function NumberSearch({ onComplete, user, addCard, myCards, onBack }) {
+function NumberSearch({ onComplete, user, addCard, myCards, awardScanCoins, checkMilestones, cardCount, onBack }) {
   const [query, setQuery]     = useState('');
   const [setFilter, setSetFilter] = useState('');
   const [results, setResults] = useState([]);
@@ -576,6 +587,8 @@ function NumberSearch({ onComplete, user, addCard, myCards, onBack }) {
     }
     try {
       await addCard({ card_id:card.id, card_name:card.name, set_id:card.set_id, set_name:card.set_name, set_series:card.set_series, card_number:card.card_number, rarity:card.rarity, image_url:card.image_small, market_price_gbp:card.prices_gbp?.market||null });
+      await awardScanCoins?.(card.rarity, card.name);
+      await checkMilestones?.(cardCount + 1);
       setFeedback(f=>({...f,[card.id]:'added'}));
     } catch(err){ console.error(err); }
   };
